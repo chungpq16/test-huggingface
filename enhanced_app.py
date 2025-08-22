@@ -243,43 +243,114 @@ def create_agent_with_tools(llm, tools):
     """Create an agent with tools bound to the LLM"""
     logger.debug(f"🔧 Creating agent with {len(tools)} tools")
     
-    # Create a prompt template for the agent
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are a helpful AI assistant with access to several tools. 
-        When a user asks for something that could be answered using a tool, use the appropriate tool.
+    try:
+        # Create a prompt template for the agent
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a helpful AI assistant with access to several tools. 
+            When a user asks for something that could be answered using a tool, use the appropriate tool.
+            
+            Available tools:
+            - get_weather: Get weather information for cities
+            - calculate_math: Perform mathematical calculations  
+            - get_current_time: Get current date and time
+            - search_dummy_database: Search for information in a dummy database
+            
+            Always provide helpful, accurate responses and use tools when appropriate."""),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad")
+        ])
         
-        Available tools:
-        - get_weather: Get weather information for cities
-        - calculate_math: Perform mathematical calculations  
-        - get_current_time: Get current date and time
-        - search_dummy_database: Search for information in a dummy database
+        # Try to bind tools to the LLM (this creates a tool-calling LLM)
+        logger.debug("🔗 Attempting to bind tools to LLM")
         
-        Always provide helpful, accurate responses and use tools when appropriate."""),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad")
-    ])
+        # Check if LLM supports tool binding
+        if hasattr(llm, 'bind_tools'):
+            llm_with_tools = llm.bind_tools(tools)
+            logger.debug("✅ Tools bound successfully")
+        else:
+            logger.debug("⚠️ LLM doesn't support bind_tools, using fallback")
+            llm_with_tools = llm
+        
+        # Create the agent
+        logger.debug("🤖 Creating tool calling agent")
+        agent = create_tool_calling_agent(llm_with_tools, tools, prompt)
+        
+        # Create agent executor
+        logger.debug("⚙️ Creating agent executor")
+        agent_executor = AgentExecutor(
+            agent=agent, 
+            tools=tools, 
+            verbose=True,
+            handle_parsing_errors=True,
+            max_iterations=3
+        )
+        
+        logger.debug("✅ Agent created successfully")
+        return agent_executor
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to create agent: {str(e)}")
+        # Return a fallback that will trigger manual tool handling
+        return None
+
+def handle_tools_manually(prompt: str, llm, tools):
+    """Fallback manual tool handling when agent creation fails"""
+    logger.debug("🔧 Using manual tool handling as fallback")
+    prompt_lower = prompt.lower()
     
-    # Bind tools to the LLM (this creates a tool-calling LLM)
-    logger.debug("🔗 Binding tools to LLM")
-    llm_with_tools = llm.bind_tools(tools)
+    # Tool detection and execution
+    tool_results = []
     
-    # Create the agent
-    logger.debug("🤖 Creating tool calling agent")
-    agent = create_tool_calling_agent(llm_with_tools, tools, prompt)
+    # Weather tool detection
+    if any(keyword in prompt_lower for keyword in ["weather", "temperature", "climate", "forecast"]):
+        # Extract city (simple approach)
+        words = prompt.split()
+        city = "New York"  # default
+        for i, word in enumerate(words):
+            if word.lower() in ["in", "for", "at", "of"] and i + 1 < len(words):
+                city = words[i + 1].strip(".,!?")
+                break
+        
+        weather_result = get_weather.func(city)
+        tool_results.append(f"Weather Tool: {weather_result}")
     
-    # Create agent executor
-    logger.debug("⚙️ Creating agent executor")
-    agent_executor = AgentExecutor(
-        agent=agent, 
-        tools=tools, 
-        verbose=True,
-        handle_parsing_errors=True,
-        max_iterations=3
-    )
+    # Math tool detection  
+    if any(keyword in prompt_lower for keyword in ["calculate", "math", "compute"]) or any(op in prompt for op in ["+", "-", "*", "/", "="]):
+        # Extract expression (simple approach)
+        import re
+        math_pattern = r'[\d\+\-\*/\(\)\s\.]+'
+        expressions = re.findall(math_pattern, prompt)
+        if expressions:
+            expression = max(expressions, key=len).strip()
+            calc_result = calculate_math.func(expression)
+            tool_results.append(f"Calculator Tool: {calc_result}")
     
-    logger.debug("✅ Agent created successfully")
-    return agent_executor
+    # Time tool detection
+    if any(keyword in prompt_lower for keyword in ["time", "date", "clock", "when"]):
+        time_result = get_current_time.func()
+        tool_results.append(f"Time Tool: {time_result}")
+    
+    # Database search detection
+    if any(keyword in prompt_lower for keyword in ["search", "find", "about", "what is", "tell me about"]):
+        search_result = search_dummy_database.func(prompt)
+        tool_results.append(f"Database Search: {search_result}")
+    
+    # Combine prompt with tool results
+    if tool_results:
+        enhanced_prompt = f"""User Question: {prompt}
+
+Tool Results:
+{chr(10).join(tool_results)}
+
+Please provide a comprehensive response using the tool results above."""
+    else:
+        enhanced_prompt = prompt
+    
+    # Get LLM response
+    messages = [HumanMessage(content=enhanced_prompt)]
+    result = llm._generate(messages)
+    return result.generations[0].message.content
 
 # Streamlit App
 def main():
@@ -402,24 +473,28 @@ def main():
                         tools = [get_weather, calculate_math, get_current_time, search_dummy_database]
                         agent_executor = create_agent_with_tools(llm, tools)
                         
-                        # Get chat history for context
-                        chat_history = []
-                        for msg in st.session_state.messages[-6:]:  # Last 6 messages for context
-                            if msg["role"] == "user":
-                                chat_history.append(HumanMessage(content=msg["content"]))
-                            else:
-                                chat_history.append(AIMessage(content=msg["content"]))
-                        
-                        logger.debug(f"📚 Using {len(chat_history)} messages as chat history")
-                        
-                        # Let the agent decide when to use tools
-                        logger.debug("🚀 Invoking agent executor")
-                        result = agent_executor.invoke({
-                            "input": prompt,
-                            "chat_history": chat_history
-                        })
-                        response = result["output"]
-                        logger.debug("✅ Agent execution completed")
+                        if agent_executor is not None:
+                            # Get chat history for context
+                            chat_history = []
+                            for msg in st.session_state.messages[-6:]:  # Last 6 messages for context
+                                if msg["role"] == "user":
+                                    chat_history.append(HumanMessage(content=msg["content"]))
+                                else:
+                                    chat_history.append(AIMessage(content=msg["content"]))
+                            
+                            logger.debug(f"📚 Using {len(chat_history)} messages as chat history")
+                            
+                            # Let the agent decide when to use tools
+                            logger.debug("🚀 Invoking agent executor")
+                            result = agent_executor.invoke({
+                                "input": prompt,
+                                "chat_history": chat_history
+                            })
+                            response = result["output"]
+                            logger.debug("✅ Agent execution completed")
+                        else:
+                            logger.debug("⚠️ Agent creation failed, falling back to manual tool handling")
+                            response = handle_tools_manually(prompt, llm, tools)
                     else:
                         logger.debug("🔧 Using direct LLM call without tools")
                         # Direct LLM call without tools
