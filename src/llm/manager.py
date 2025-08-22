@@ -59,3 +59,32 @@ class LLMManager:
         if not self._llm:
             return self.initialize()
         return self._llm
+    
+    def test_connection(self) -> str:
+        """Test the LLM connection and return status"""
+        try:
+            logger.info("🧪 Testing API connection...")
+            llm = self.get_llm()
+            
+            # Simple test message
+            test_response = llm.invoke([{"role": "user", "content": "Hello"}])
+            
+            if test_response and test_response.content:
+                logger.info("✅ API connection successful")
+                return "Connected"
+            else:
+                logger.warning("⚠️  API responded but with empty content")
+                return "Connected (Warning)"
+                
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"❌ API connection failed: {error_msg}")
+            
+            if "CERTIFICATE_VERIFY_FAILED" in error_msg or "SSL" in error_msg:
+                return "SSL Error"
+            elif "401" in error_msg or "Unauthorized" in error_msg:
+                return "Auth Error"
+            elif "timeout" in error_msg.lower():
+                return "Timeout"
+            else:
+                return "Connection Failed"
