@@ -166,11 +166,11 @@ Otherwise, respond naturally to the user's question.
             if tool_name in self.tools:
                 logger.info(f"🔧 Calling tool: {tool_name} with parameter: {tool_param}")
                 try:
-                    # Call the tool
+                    # Call the tool using invoke method
                     if tool_param and tool_param.lower() != "world":
-                        tool_result = self.tools[tool_name](tool_param)
+                        tool_result = self.tools[tool_name].invoke({"name": tool_param})
                     else:
-                        tool_result = self.tools[tool_name]()
+                        tool_result = self.tools[tool_name].invoke({"name": "World"})
                     
                     return {"output": tool_result}
                 except Exception as e:
