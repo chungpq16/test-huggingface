@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import logging
+import warnings
 from datetime import datetime
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -9,18 +10,34 @@ from langchain.agents import create_openai_tools_agent, AgentExecutor
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import HumanMessage, AIMessage
 
+# Suppress warnings
+warnings.filterwarnings("ignore", message=".*ScriptRunContext.*")
+
 # Load environment variables
 load_dotenv()
 
-# Configure logging
+# Configure logging with less verbose console output
+file_handler = logging.FileHandler('chatbot_debug.log')
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)  # Only INFO and above to console
+console_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+
+# Configure root logger
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('chatbot_debug.log'),
-        logging.StreamHandler()
-    ]
+    handlers=[file_handler, console_handler]
 )
+
+# Reduce noise from third-party libraries
+logging.getLogger("watchdog").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("streamlit").setLevel(logging.ERROR)
+
 logger = logging.getLogger(__name__)
 
 # Define a simple hello tool
@@ -37,12 +54,12 @@ def hello_tool(name: str = "World") -> str:
     """
     logger.debug(f"hello_tool called with name: {name}")
     result = f"Hello, {name}! Nice to meet you!"
-    logger.debug(f"hello_tool returning: {result}")
+    logger.info(f"🔧 Used hello_tool for: {name}")
     return result
 
 # Initialize the LLM with your custom endpoint
 def initialize_llm():
-    logger.info("Initializing LLM...")
+    logger.info("🔧 Initializing LLM...")
     
     api_key = os.getenv("LLAMA_API_KEY")
     base_url = os.getenv("LLAMA_BASE_URL")
@@ -68,15 +85,15 @@ def initialize_llm():
             # Custom headers for your API
             default_headers={"KeyId": api_key}
         )
-        logger.info("LLM initialized successfully")
+        logger.info("✅ LLM initialized successfully")
         return llm
     except Exception as e:
-        logger.error(f"Failed to initialize LLM: {str(e)}")
+        logger.error(f"❌ Failed to initialize LLM: {str(e)}")
         raise
 
 # Create the agent
 def create_agent():
-    logger.info("Creating agent...")
+    logger.info("🔧 Creating agent...")
     
     try:
         llm = initialize_llm()
@@ -98,11 +115,11 @@ def create_agent():
         agent = create_openai_tools_agent(llm, tools, prompt)
         agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
         
-        logger.info("Agent created successfully")
+        logger.info("✅ Agent created successfully")
         return agent_executor
         
     except Exception as e:
-        logger.error(f"Failed to create agent: {str(e)}")
+        logger.error(f"❌ Failed to create agent: {str(e)}")
         raise
 
 # Streamlit UI
@@ -110,7 +127,7 @@ def main():
     st.title("🤖 Simple LLM Chatbot with Tools")
     st.write("A minimal chatbot using LangChain and your custom LLM endpoint")
     
-    logger.info("Starting Streamlit application")
+    logger.info("🚀 Starting Streamlit application")
     
     # Initialize session state
     if "messages" not in st.session_state:
@@ -119,14 +136,14 @@ def main():
     
     if "agent" not in st.session_state:
         try:
-            logger.info("Initializing agent for the first time")
+            logger.info("🔧 Initializing agent for the first time")
             st.session_state.agent = create_agent()
             st.success("✅ Chatbot initialized successfully!")
-            logger.info("Agent initialization successful")
+            logger.info("✅ Agent initialization successful")
         except Exception as e:
             error_msg = f"❌ Failed to initialize chatbot: {str(e)}"
             st.error(error_msg)
-            logger.error(f"Agent initialization failed: {str(e)}")
+            logger.error(f"❌ Agent initialization failed: {str(e)}")
             st.stop()
     
     # Display chat history
@@ -136,7 +153,7 @@ def main():
     
     # Chat input
     if prompt := st.chat_input("What would you like to say?"):
-        logger.info(f"User input received: {prompt}")
+        logger.info(f"💬 User: {prompt}")
         
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
@@ -160,7 +177,7 @@ def main():
                     logger.debug(f"Chat history length: {len(chat_history)}")
                     
                     # Get response from agent
-                    logger.info("Invoking agent with user input")
+                    logger.info("🤖 Processing request...")
                     start_time = datetime.now()
                     
                     response = st.session_state.agent.invoke({
@@ -170,7 +187,7 @@ def main():
                     
                     end_time = datetime.now()
                     response_time = (end_time - start_time).total_seconds()
-                    logger.info(f"Agent response received in {response_time:.2f} seconds")
+                    logger.info(f"✅ Response received in {response_time:.2f}s")
                     
                     # Display response
                     bot_response = response["output"]
@@ -184,7 +201,7 @@ def main():
                     
             except Exception as e:
                 error_msg = f"Sorry, I encountered an error: {str(e)}"
-                logger.error(f"Error during chat interaction: {str(e)}", exc_info=True)
+                logger.error(f"❌ Error during chat: {str(e)}", exc_info=True)
                 st.error(error_msg)
                 st.session_state.messages.append({"role": "assistant", "content": error_msg})
     
@@ -201,7 +218,7 @@ def main():
         st.write("- 'Tell me a joke'")
         
         if st.button("🔄 Clear Chat"):
-            logger.info("Chat history cleared by user")
+            logger.info("🧹 Chat history cleared by user")
             st.session_state.messages = []
             st.rerun()
         
@@ -231,6 +248,6 @@ def main():
 
 if __name__ == "__main__":
     logger.info("="*50)
-    logger.info("Starting chatbot application")
+    logger.info("🚀 Starting chatbot application")
     logger.info("="*50)
     main()
