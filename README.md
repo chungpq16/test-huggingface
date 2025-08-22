@@ -1,94 +1,147 @@
-# Simple LLM Chatbot
+# Simple LangChain Chatbot
 
-A minimal chatbot using LangChain, Streamlit, and your custom LLM endpoint.
+A simple chatbot built with LangChain and Streamlit that connects to custom LLM endpoints with tool integration.
 
 ## Features
-- LangChain integration with custom OpenAI-compatible API
-- Streamlit web interface
-- Simple hello tool that the LLM can use
-- Agent that decides when to use tools vs direct response
-- **Comprehensive debug logging**
 
-## Setup
+- 🤖 **LangChain Integration**: Uses LangChain for LLM interactions
+- 🎨 **Streamlit UI**: Clean, interactive web interface
+- 🔧 **Custom Tools**: Extensible tool system (currently includes hello tool)
+- 🌐 **Custom Endpoints**: Works with OpenAI-compatible API endpoints
+- 📝 **Comprehensive Logging**: File and console logging with configurable levels
+- 🔒 **SSL Configuration**: Configurable SSL verification for development
 
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
+## Architecture
+
+```
+src/
+├── __init__.py              # Package initialization
+├── main.py                  # Application entry point
+├── config/
+│   ├── __init__.py
+│   └── settings.py          # Configuration management
+├── utils/
+│   ├── __init__.py
+│   └── logging.py           # Logging setup
+├── tools/
+│   ├── __init__.py
+│   ├── hello.py             # Hello tool implementation
+│   └── registry.py          # Tool registry
+├── llm/
+│   ├── __init__.py
+│   └── manager.py           # LLM initialization and management
+├── agents/
+│   ├── __init__.py
+│   └── simple_agent.py      # Simple agent implementation
+└── ui/
+    ├── __init__.py
+    └── streamlit_ui.py       # Streamlit interface
 ```
 
-2. Configure your API credentials in `.env`:
-```
-LLAMA_API_KEY=your_actual_token_here
-LLAMA_BASE_URL=https://dummy.chat/it/application/llamashared/prod/v1
+## Quick Start
 
-# SSL Configuration (if you get SSL certificate errors)
-VERIFY_SSL=true
-```
+1. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-**SSL Certificate Issues?**
-If you encounter SSL certificate verification errors, you can temporarily disable SSL verification for development:
-```
+2. **Set up environment variables:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API credentials
+   ```
+
+3. **Run the application:**
+   ```bash
+   streamlit run app.py
+   ```
+
+## Environment Variables
+
+Create a `.env` file with the following variables:
+
+```env
+# LLM Configuration
+API_KEY=your_api_key_here
+BASE_URL=https://your-endpoint.com/v1
+MODEL_NAME=Meta-Llama-3-70B-Instruct
+
+# SSL Configuration (for development)
 VERIFY_SSL=false
-```
-⚠️ **Warning**: Only disable SSL verification for development/testing purposes!
 
-3. Run the chatbot:
-```bash
-streamlit run chatbot.py
+# Logging Configuration
+LOG_LEVEL=INFO
 ```
 
 ## Usage
 
-The chatbot will automatically decide whether to:
-- Use the hello tool when appropriate (e.g., "Say hello to Alice")
-- Respond directly for general questions
+1. **Basic Chat**: Simply type messages and get responses
+2. **Tool Usage**: Try phrases like:
+   - "Hello there!" (direct response)
+   - "Say hello to Alice" (uses hello tool)
+   - "What can you help me with?" (general assistance)
 
-## Debug Features
+## Development
+
+### Adding New Tools
+
+1. Create a new tool file in `src/tools/`:
+   ```python
+   from langchain.tools import tool
+   
+   @tool
+   def my_tool(input_text: str) -> str:
+       """Description of what this tool does."""
+       return f"Tool result: {input_text}"
+   ```
+
+2. Register the tool in `src/tools/registry.py`:
+   ```python
+   from .my_tool import my_tool
+   
+   class ToolRegistry:
+       def get_all_tools(self):
+           return [hello_tool, my_tool]  # Add your tool here
+   ```
+
+### Customizing the Agent
+
+The `SimpleAgent` class in `src/agents/simple_agent.py` handles tool calling through pattern matching. You can customize:
+
+- Tool call patterns
+- Response formatting
+- Error handling
+- Chat history management
+
+### Configuration
+
+The `Config` class in `src/config/settings.py` manages all configuration. Add new settings by:
+
+1. Adding the environment variable
+2. Adding a property to the Config class
+3. Adding validation if needed
+
+## Troubleshooting
+
+### SSL Certificate Errors
+
+Set `VERIFY_SSL=false` in your `.env` file for development environments.
+
+### Tool Calling Issues
+
+The agent uses a simple pattern-matching approach for tool calling. Make sure your LLM endpoint supports basic text generation (doesn't need advanced function calling).
 
 ### Debug Logging
-- All interactions are logged to `chatbot_debug.log`
-- Logs include API calls, tool usage, errors, and response times
-- View recent logs directly in the Streamlit sidebar
 
-### Debug Utility
-Run the debug utility to check your setup:
-```bash
-python debug_utils.py
-```
+Check the `logs/` directory for detailed debug information. Logs are organized by date.
 
-This will:
-- ✅ Check environment variables
-- 🌐 Test API connection
-- 📋 Show recent log entries
-- 🔍 Analyze logs for common issues
+## Dependencies
 
-### Log Levels
-- **ERROR**: Critical issues that prevent operation
-- **INFO**: General application flow
-- **DEBUG**: Detailed information for troubleshooting
+- **LangChain**: LLM integration and tool management
+- **Streamlit**: Web interface
+- **httpx**: HTTP client with SSL configuration
+- **python-dotenv**: Environment variable management
 
-### Common Debug Scenarios
+## License
 
-1. **SSL Certificate Issues**:
-   - Error: `SSL: CERTIFICATE_VERIFY_FAILED`
-   - Solution: Set `VERIFY_SSL=false` in `.env` for development
-   - Run `python debug_utils.py` to test connection
-
-2. **API Connection Issues**:
-   - Check logs for "Failed to initialize LLM"
-   - Verify API credentials in `.env`
-   - Run `python debug_utils.py` to test connection
-
-3. **Tool Usage**:
-   - Look for "hello_tool called with name:" in logs
-   - Check if agent is choosing tools vs direct response
-
-4. **Performance**:
-   - Response times are logged for each interaction
-   - Monitor for timeout issues
-
-## Example Interactions
-
-- **Tool usage**: "Say hello to John" → Uses hello_tool
-- **Direct response**: "What is 2+2?" → Direct LLM response
-- **General chat**: "Tell me a joke" → Direct LLM response
+MIT License - see LICENSE file for details.
