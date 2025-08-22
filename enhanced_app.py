@@ -4,6 +4,7 @@ import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import re
+import logging
 
 # LangChain imports for tool binding
 from langchain.tools import BaseTool, tool
@@ -16,6 +17,20 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.outputs import ChatResult, ChatGeneration
 from langchain_core.messages import BaseMessage as CoreBaseMessage
 from pydantic import BaseModel, Field
+
+# Setup logging
+def setup_logging():
+    """Setup logging configuration"""
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler()
+        ]
+    )
+    return logging.getLogger(__name__)
+
+logger = setup_logging()
 
 # Custom LLM wrapper for HuggingFace API that supports tool calling
 class HuggingFaceChatModel(BaseChatModel):
@@ -42,6 +57,7 @@ class HuggingFaceChatModel(BaseChatModel):
     
     def _generate(self, messages: List[CoreBaseMessage], **kwargs) -> ChatResult:
         """Generate response from HuggingFace API"""
+        logger.debug(f"🔄 Generating response for {len(messages)} messages")
         formatted_messages = []
         
         for msg in messages:
@@ -63,6 +79,8 @@ class HuggingFaceChatModel(BaseChatModel):
                     elif isinstance(msg, SystemMessage):
                         formatted_messages.append({"role": "system", "content": content})
         
+        logger.debug(f"📤 Sending {len(formatted_messages)} formatted messages to API")
+        
         payload = {
             "messages": formatted_messages,
             "max_tokens": self.max_tokens,
@@ -70,6 +88,7 @@ class HuggingFaceChatModel(BaseChatModel):
         }
         
         try:
+            logger.debug(f"🌐 Making API call to {self.api_endpoint}/v1/chat/completions")
             response = requests.post(
                 f"{self.api_endpoint}/v1/chat/completions",
                 headers=self.headers,
@@ -80,6 +99,8 @@ class HuggingFaceChatModel(BaseChatModel):
             result = response.json()
             content = result["choices"][0]["message"]["content"]
             
+            logger.debug(f"✅ API response received: {len(content)} characters")
+            
             # Create ChatGeneration
             message = AIMessage(content=content)
             generation = ChatGeneration(message=message)
@@ -87,6 +108,7 @@ class HuggingFaceChatModel(BaseChatModel):
             return ChatResult(generations=[generation])
             
         except Exception as e:
+            logger.error(f"❌ API call failed: {str(e)}")
             error_content = f"Error calling HuggingFace API: {str(e)}"
             message = AIMessage(content=error_content)
             generation = ChatGeneration(message=message)
@@ -103,6 +125,7 @@ def get_weather(city: str) -> str:
     Returns:
         Weather information as a string
     """
+    logger.debug(f"🌤️ Weather tool called for city: {city}")
     weather_data = {
         "new york": "Sunny, 22°C (72°F), Light breeze from the west",
         "london": "Cloudy, 15°C (59°F), Light rain expected in the evening", 
@@ -118,7 +141,9 @@ def get_weather(city: str) -> str:
     city_lower = city.lower().strip()
     weather = weather_data.get(city_lower, f"Weather data not available for {city}. Assume pleasant conditions with moderate temperature.")
     
-    return f"🌤️ Weather in {city.title()}: {weather}"
+    result = f"🌤️ Weather in {city.title()}: {weather}"
+    logger.debug(f"🌤️ Weather tool result: {result}")
+    return result
 
 @tool  
 def calculate_math(expression: str) -> str:
@@ -130,22 +155,33 @@ def calculate_math(expression: str) -> str:
     Returns:
         The calculation result as a string
     """
+    logger.debug(f"🧮 Calculator tool called for expression: {expression}")
     try:
         # Security check - only allow safe mathematical operations
         allowed_chars = set('0123456789+-*/().,')
         if not all(c in allowed_chars or c.isspace() for c in expression):
-            return "❌ Error: Only basic mathematical operations (+, -, *, /, parentheses) and numbers are allowed"
+            result = "❌ Error: Only basic mathematical operations (+, -, *, /, parentheses) and numbers are allowed"
+            logger.debug(f"🧮 Calculator security check failed: {result}")
+            return result
         
         # Evaluate the expression safely
-        result = eval(expression.strip())
-        return f"🧮 Calculation: {expression} = {result}"
+        calc_result = eval(expression.strip())
+        result = f"🧮 Calculation: {expression} = {calc_result}"
+        logger.debug(f"🧮 Calculator tool result: {result}")
+        return result
         
     except ZeroDivisionError:
-        return "❌ Error: Division by zero is not allowed"
+        result = "❌ Error: Division by zero is not allowed"
+        logger.debug(f"🧮 Calculator division by zero error: {result}")
+        return result
     except SyntaxError:
-        return "❌ Error: Invalid mathematical expression"
+        result = "❌ Error: Invalid mathematical expression"
+        logger.debug(f"🧮 Calculator syntax error: {result}")
+        return result
     except Exception as e:
-        return f"❌ Calculation error: {str(e)}"
+        result = f"❌ Calculation error: {str(e)}"
+        logger.debug(f"🧮 Calculator general error: {result}")
+        return result
 
 @tool
 def get_current_time() -> str:
@@ -154,9 +190,12 @@ def get_current_time() -> str:
     Returns:
         Current date and time as a formatted string
     """
+    logger.debug("🕐 Time tool called")
     now = datetime.now()
     formatted_time = now.strftime('%A, %B %d, %Y at %I:%M %p')
-    return f"🕐 Current time: {formatted_time}"
+    result = f"🕐 Current time: {formatted_time}"
+    logger.debug(f"🕐 Time tool result: {result}")
+    return result
 
 @tool
 def search_dummy_database(query: str) -> str:
@@ -168,6 +207,7 @@ def search_dummy_database(query: str) -> str:
     Returns:
         Search results from the dummy database
     """
+    logger.debug(f"📚 Database search tool called for query: {query}")
     dummy_data = {
         "python": "Python is a high-level programming language known for its simplicity and readability.",
         "ai": "Artificial Intelligence (AI) refers to the simulation of human intelligence in machines.",
@@ -179,13 +219,18 @@ def search_dummy_database(query: str) -> str:
     query_lower = query.lower()
     for key, value in dummy_data.items():
         if key in query_lower:
-            return f"📚 Found information about '{key}': {value}"
+            result = f"📚 Found information about '{key}': {value}"
+            logger.debug(f"📚 Database search found match: {key}")
+            return result
     
-    return f"📚 No specific information found for '{query}'. This is a dummy database with limited data."
+    result = f"📚 No specific information found for '{query}'. This is a dummy database with limited data."
+    logger.debug(f"📚 Database search no match found for: {query}")
+    return result
 
 # Create the agent with bound tools
 def create_agent_with_tools(llm, tools):
     """Create an agent with tools bound to the LLM"""
+    logger.debug(f"🔧 Creating agent with {len(tools)} tools")
     
     # Create a prompt template for the agent
     prompt = ChatPromptTemplate.from_messages([
@@ -205,12 +250,15 @@ def create_agent_with_tools(llm, tools):
     ])
     
     # Bind tools to the LLM (this creates a tool-calling LLM)
+    logger.debug("🔗 Binding tools to LLM")
     llm_with_tools = llm.bind_tools(tools)
     
     # Create the agent
+    logger.debug("🤖 Creating tool calling agent")
     agent = create_tool_calling_agent(llm_with_tools, tools, prompt)
     
     # Create agent executor
+    logger.debug("⚙️ Creating agent executor")
     agent_executor = AgentExecutor(
         agent=agent, 
         tools=tools, 
@@ -219,6 +267,7 @@ def create_agent_with_tools(llm, tools):
         max_iterations=3
     )
     
+    logger.debug("✅ Agent created successfully")
     return agent_executor
 
 # Streamlit App
@@ -285,6 +334,14 @@ def main():
         )
         st.session_state["use_agent"] = use_agent
         
+        # Debug settings
+        debug_mode = st.checkbox(
+            "Debug Mode", 
+            value=st.session_state.get("debug_mode", False),
+            help="Show debug logs in the interface"
+        )
+        st.session_state["debug_mode"] = debug_mode
+        
         if st.button("🗑️ Clear Chat", use_container_width=True):
             st.session_state.messages = []
             if "memory" in st.session_state:
@@ -323,10 +380,13 @@ def main():
         with st.chat_message("assistant"):
             with st.spinner("🤔 Thinking..."):
                 try:
+                    logger.debug(f"💭 Processing user input: {prompt}")
+                    
                     # Initialize LLM
                     llm = HuggingFaceChatModel(api_endpoint=api_endpoint, api_key=api_key)
                     
                     if st.session_state.get("use_agent", True):
+                        logger.debug("🔧 Using agent with bound tools")
                         # Use agent with bound tools - let LLM decide when to use tools
                         tools = [get_weather, calculate_math, get_current_time, search_dummy_database]
                         agent_executor = create_agent_with_tools(llm, tools)
@@ -339,21 +399,38 @@ def main():
                             else:
                                 chat_history.append(AIMessage(content=msg["content"]))
                         
+                        logger.debug(f"📚 Using {len(chat_history)} messages as chat history")
+                        
                         # Let the agent decide when to use tools
+                        logger.debug("🚀 Invoking agent executor")
                         result = agent_executor.invoke({
                             "input": prompt,
                             "chat_history": chat_history
                         })
                         response = result["output"]
+                        logger.debug("✅ Agent execution completed")
                     else:
+                        logger.debug("🔧 Using direct LLM call without tools")
                         # Direct LLM call without tools
                         messages = [HumanMessage(content=prompt)]
                         result = llm._generate(messages)
                         response = result.generations[0].message.content
                     
+                    # Show debug info if enabled
+                    if st.session_state.get("debug_mode", False):
+                        with st.expander("🐛 Debug Information"):
+                            st.json({
+                                "user_input": prompt,
+                                "using_agent": st.session_state.get("use_agent", True),
+                                "chat_history_length": len(st.session_state.messages),
+                                "response_length": len(response),
+                                "api_endpoint": api_endpoint[:50] + "..." if len(api_endpoint) > 50 else api_endpoint
+                            })
+                    
                     st.markdown(response)
                     
                 except Exception as e:
+                    logger.error(f"💥 Error during processing: {str(e)}")
                     error_msg = f"Error: {str(e)}"
                     st.error(error_msg)
                     response = error_msg
