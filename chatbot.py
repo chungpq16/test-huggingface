@@ -2,6 +2,8 @@ import streamlit as st
 import os
 import logging
 import warnings
+import ssl
+import httpx
 from datetime import datetime
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -63,9 +65,11 @@ def initialize_llm():
     
     api_key = os.getenv("LLAMA_API_KEY")
     base_url = os.getenv("LLAMA_BASE_URL")
+    verify_ssl = os.getenv("VERIFY_SSL", "true").lower() == "true"
     
     logger.debug(f"API Base URL: {base_url}")
     logger.debug(f"API Key present: {bool(api_key)}")
+    logger.debug(f"SSL Verification: {verify_ssl}")
     
     if not api_key:
         logger.error("LLAMA_API_KEY not found in environment variables")
@@ -76,6 +80,15 @@ def initialize_llm():
         raise ValueError("LLAMA_BASE_URL not configured")
     
     try:
+        # Create custom HTTP client with SSL configuration
+        if not verify_ssl:
+            logger.warning("⚠️  SSL verification disabled - use only for development!")
+            # Create httpx client with SSL verification disabled
+            http_client = httpx.Client(verify=False)
+        else:
+            # Create httpx client with default SSL verification
+            http_client = httpx.Client()
+        
         llm = ChatOpenAI(
             model="meta-llama/Meta-Llama-3-70B-Instruct",
             openai_api_key=api_key,
@@ -83,12 +96,17 @@ def initialize_llm():
             max_tokens=2048,
             temperature=0.7,
             # Custom headers for your API
-            default_headers={"KeyId": api_key}
+            default_headers={"KeyId": api_key},
+            # Custom HTTP client for SSL handling
+            http_client=http_client
         )
         logger.info("✅ LLM initialized successfully")
         return llm
     except Exception as e:
         logger.error(f"❌ Failed to initialize LLM: {str(e)}")
+        # If SSL error, provide helpful guidance
+        if "CERTIFICATE_VERIFY_FAILED" in str(e) or "SSL" in str(e):
+            logger.error("💡 SSL Certificate error detected. Try setting VERIFY_SSL=false in your .env file for development")
         raise
 
 # Create the agent

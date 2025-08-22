@@ -17,6 +17,7 @@ def check_environment():
     print("=" * 40)
     
     required_vars = ["LLAMA_API_KEY", "LLAMA_BASE_URL"]
+    optional_vars = ["VERIFY_SSL"]
     
     for var in required_vars:
         value = os.getenv(var)
@@ -27,6 +28,10 @@ def check_environment():
                 print(f"✅ {var}: {value}")
         else:
             print(f"❌ {var}: Not set")
+    
+    for var in optional_vars:
+        value = os.getenv(var, "true")  # Default to true
+        print(f"ℹ️  {var}: {value}")
     
     print()
 
@@ -41,6 +46,7 @@ def test_api_connection():
     
     api_key = os.getenv("LLAMA_API_KEY")
     base_url = os.getenv("LLAMA_BASE_URL")
+    verify_ssl = os.getenv("VERIFY_SSL", "true").lower() == "true"
     
     if not api_key or not base_url:
         print("❌ Missing API credentials")
@@ -61,7 +67,15 @@ def test_api_connection():
     
     try:
         print(f"📡 Testing endpoint: {url}")
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        print(f"🔒 SSL Verification: {verify_ssl}")
+        
+        response = requests.post(
+            url, 
+            headers=headers, 
+            json=payload, 
+            timeout=30,
+            verify=verify_ssl  # Use SSL verification setting
+        )
         
         print(f"📊 Status Code: {response.status_code}")
         
@@ -77,6 +91,11 @@ def test_api_connection():
             print(f"📝 Response: {response.text}")
             return False
             
+    except requests.exceptions.SSLError as e:
+        print(f"❌ SSL Certificate error: {str(e)}")
+        print("💡 Try setting VERIFY_SSL=false in your .env file for development")
+        print("   Note: Only disable SSL verification for development/testing!")
+        return False
     except requests.exceptions.Timeout:
         print("❌ Request timeout (30s)")
         return False

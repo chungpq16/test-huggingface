@@ -20,7 +20,17 @@ pip install -r requirements.txt
 ```
 LLAMA_API_KEY=your_actual_token_here
 LLAMA_BASE_URL=https://dummy.chat/it/application/llamashared/prod/v1
+
+# SSL Configuration (if you get SSL certificate errors)
+VERIFY_SSL=true
 ```
+
+**SSL Certificate Issues?**
+If you encounter SSL certificate verification errors, you can temporarily disable SSL verification for development:
+```
+VERIFY_SSL=false
+```
+⚠️ **Warning**: Only disable SSL verification for development/testing purposes!
 
 3. Run the chatbot:
 ```bash
@@ -59,16 +69,21 @@ This will:
 
 ### Common Debug Scenarios
 
-1. **API Connection Issues**:
+1. **SSL Certificate Issues**:
+   - Error: `SSL: CERTIFICATE_VERIFY_FAILED`
+   - Solution: Set `VERIFY_SSL=false` in `.env` for development
+   - Run `python debug_utils.py` to test connection
+
+2. **API Connection Issues**:
    - Check logs for "Failed to initialize LLM"
    - Verify API credentials in `.env`
    - Run `python debug_utils.py` to test connection
 
-2. **Tool Usage**:
+3. **Tool Usage**:
    - Look for "hello_tool called with name:" in logs
    - Check if agent is choosing tools vs direct response
 
-3. **Performance**:
+4. **Performance**:
    - Response times are logged for each interaction
    - Monitor for timeout issues
 
