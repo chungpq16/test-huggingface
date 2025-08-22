@@ -32,14 +32,14 @@ def setup_logging():
 
 logger = setup_logging()
 
-# Custom LLM wrapper for HuggingFace API that supports tool calling
-class HuggingFaceChatModel(BaseChatModel):
-    """Custom LangChain-compatible LLM for HuggingFace API"""
+# Custom LLM wrapper for API that supports tool calling
+class CustomChatModel(BaseChatModel):
+    """Custom LangChain-compatible LLM for API integration"""
     
-    api_endpoint: str = Field(..., description="HuggingFace API endpoint")
+    api_endpoint: str = Field(..., description="API endpoint")
     api_key: str = Field(..., description="API key for authentication")
-    model_name: str = Field(default="huggingface-model", description="Model name")
-    max_tokens: int = Field(default=1000, description="Maximum tokens in response")
+    model_name: str = Field(default="custom-model", description="Model name")
+    max_tokens: int = Field(default=2048, description="Maximum tokens in response")
     temperature: float = Field(default=0.7, description="Temperature for generation")
     
     class Config:
@@ -65,10 +65,10 @@ class HuggingFaceChatModel(BaseChatModel):
     
     @property
     def _llm_type(self) -> str:
-        return "bosch-llama"
+        return "custom-api"
     
     def _generate(self, messages: List[CoreBaseMessage], **kwargs) -> ChatResult:
-        """Generate response from HuggingFace API"""
+        """Generate response from API"""
         logger.debug(f"🔄 Generating response for {len(messages)} messages")
         formatted_messages = []
         
@@ -96,9 +96,12 @@ class HuggingFaceChatModel(BaseChatModel):
         payload = {
             "messages": formatted_messages,
             "max_tokens": self.max_tokens,
-            "temperature": self.temperature,
             "model": "meta-llama/Meta-Llama-3-70B-Instruct"
         }
+        
+        # Add temperature if specified
+        if hasattr(self, 'temperature') and self.temperature != 0.7:
+            payload["temperature"] = self.temperature
         
         # Debug: Log headers and payload
         logger.debug(f"🔑 API Headers: {dict(self.headers)}")
@@ -126,80 +129,12 @@ class HuggingFaceChatModel(BaseChatModel):
             
         except Exception as e:
             logger.error(f"❌ API call failed: {str(e)}")
-            error_content = f"Error calling Bosch Llama API: {str(e)}"
+            error_content = f"Error calling API: {str(e)}"
             message = AIMessage(content=error_content)
             generation = ChatGeneration(message=message)
             return ChatResult(generations=[generation])
 
 # Define tools using LangChain's @tool decorator
-@tool
-def get_weather(city: str) -> str:
-    """Get current weather information for a given city.
-    
-    Args:
-        city: The name of the city to get weather for
-        
-    Returns:
-        Weather information as a string
-    """
-    logger.debug(f"🌤️ Weather tool called for city: {city}")
-    weather_data = {
-        "new york": "Sunny, 22°C (72°F), Light breeze from the west",
-        "london": "Cloudy, 15°C (59°F), Light rain expected in the evening", 
-        "tokyo": "Partly cloudy, 18°C (64°F), Humid with 70% humidity",
-        "paris": "Sunny, 20°C (68°F), Clear skies, perfect for sightseeing",
-        "sydney": "Sunny, 25°C (77°F), Perfect beach weather with light winds",
-        "san francisco": "Foggy, 16°C (61°F), Typical SF morning fog clearing by noon",
-        "berlin": "Overcast, 12°C (54°F), Cool and breezy, light jacket recommended",
-        "mumbai": "Hot and humid, 32°C (90°F), Monsoon season with scattered showers",
-        "singapore": "Tropical, 28°C (82°F), High humidity with afternoon thunderstorms"
-    }
-    
-    city_lower = city.lower().strip()
-    weather = weather_data.get(city_lower, f"Weather data not available for {city}. Assume pleasant conditions with moderate temperature.")
-    
-    result = f"🌤️ Weather in {city.title()}: {weather}"
-    logger.debug(f"🌤️ Weather tool result: {result}")
-    return result
-
-@tool  
-def calculate_math(expression: str) -> str:
-    """Perform mathematical calculations on a given expression.
-    
-    Args:
-        expression: Mathematical expression to evaluate (e.g., "2 + 3 * 4")
-        
-    Returns:
-        The calculation result as a string
-    """
-    logger.debug(f"🧮 Calculator tool called for expression: {expression}")
-    try:
-        # Security check - only allow safe mathematical operations
-        allowed_chars = set('0123456789+-*/().,')
-        if not all(c in allowed_chars or c.isspace() for c in expression):
-            result = "❌ Error: Only basic mathematical operations (+, -, *, /, parentheses) and numbers are allowed"
-            logger.debug(f"🧮 Calculator security check failed: {result}")
-            return result
-        
-        # Evaluate the expression safely
-        calc_result = eval(expression.strip())
-        result = f"🧮 Calculation: {expression} = {calc_result}"
-        logger.debug(f"🧮 Calculator tool result: {result}")
-        return result
-        
-    except ZeroDivisionError:
-        result = "❌ Error: Division by zero is not allowed"
-        logger.debug(f"🧮 Calculator division by zero error: {result}")
-        return result
-    except SyntaxError:
-        result = "❌ Error: Invalid mathematical expression"
-        logger.debug(f"🧮 Calculator syntax error: {result}")
-        return result
-    except Exception as e:
-        result = f"❌ Calculation error: {str(e)}"
-        logger.debug(f"🧮 Calculator general error: {result}")
-        return result
-
 @tool
 def get_current_time() -> str:
     """Get the current date and time.
@@ -214,36 +149,6 @@ def get_current_time() -> str:
     logger.debug(f"🕐 Time tool result: {result}")
     return result
 
-@tool
-def search_dummy_database(query: str) -> str:
-    """Search a dummy database for information.
-    
-    Args:
-        query: Search query string
-        
-    Returns:
-        Search results from the dummy database
-    """
-    logger.debug(f"📚 Database search tool called for query: {query}")
-    dummy_data = {
-        "python": "Python is a high-level programming language known for its simplicity and readability.",
-        "ai": "Artificial Intelligence (AI) refers to the simulation of human intelligence in machines.",
-        "machine learning": "Machine Learning is a subset of AI that enables computers to learn without being explicitly programmed.",
-        "langchain": "LangChain is a framework for developing applications powered by language models.",
-        "streamlit": "Streamlit is an open-source app framework for Machine Learning and Data Science projects."
-    }
-    
-    query_lower = query.lower()
-    for key, value in dummy_data.items():
-        if key in query_lower:
-            result = f"📚 Found information about '{key}': {value}"
-            logger.debug(f"📚 Database search found match: {key}")
-            return result
-    
-    result = f"📚 No specific information found for '{query}'. This is a dummy database with limited data."
-    logger.debug(f"📚 Database search no match found for: {query}")
-    return result
-
 # Create the agent with bound tools
 def create_agent_with_tools(llm, tools):
     """Create an agent with tools bound to the LLM"""
@@ -252,35 +157,39 @@ def create_agent_with_tools(llm, tools):
     try:
         # Create a prompt template for the agent
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a helpful AI assistant with access to several tools. 
-            When a user asks for something that could be answered using a tool, use the appropriate tool.
+            ("system", """You are a helpful AI assistant with access to a tool. 
+            When a user asks for the time or date, use the get_current_time tool.
             
-            Available tools:
-            - get_weather: Get weather information for cities
-            - calculate_math: Perform mathematical calculations  
+            Available tool:
             - get_current_time: Get current date and time
-            - search_dummy_database: Search for information in a dummy database
             
-            Always provide helpful, accurate responses and use tools when appropriate."""),
+            Always provide helpful, accurate responses and use the tool when appropriate."""),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
             MessagesPlaceholder(variable_name="agent_scratchpad")
         ])
         
-        # Try to bind tools to the LLM (this creates a tool-calling LLM)
-        logger.debug("🔗 Attempting to bind tools to LLM")
-        
         # Check if LLM supports tool binding
+        logger.debug("🔗 Attempting to bind tools to LLM")
         if hasattr(llm, 'bind_tools'):
-            llm_with_tools = llm.bind_tools(tools)
-            logger.debug("✅ Tools bound successfully")
+            try:
+                llm_with_tools = llm.bind_tools(tools)
+                logger.debug("✅ Tools bound successfully")
+            except Exception as bind_error:
+                logger.warning(f"⚠️ Tool binding failed: {bind_error}")
+                logger.debug("⚠️ LLM doesn't support bind_tools, using fallback")
+                return None
         else:
-            logger.debug("⚠️ LLM doesn't support bind_tools, using fallback")
-            llm_with_tools = llm
+            logger.debug("⚠️ LLM doesn't support bind_tools method, using fallback")
+            return None
         
         # Create the agent
         logger.debug("🤖 Creating tool calling agent")
-        agent = create_tool_calling_agent(llm_with_tools, tools, prompt)
+        try:
+            agent = create_tool_calling_agent(llm_with_tools, tools, prompt)
+        except Exception as agent_error:
+            logger.warning(f"⚠️ Agent creation failed: {agent_error}")
+            return None
         
         # Create agent executor
         logger.debug("⚙️ Creating agent executor")
@@ -296,7 +205,8 @@ def create_agent_with_tools(llm, tools):
         return agent_executor
         
     except Exception as e:
-        logger.error(f"❌ Failed to create agent: {str(e)}")
+        logger.warning(f"⚠️ Failed to create agent (this is normal for non-tool-calling models): {str(e)}")
+        logger.debug("🔄 Falling back to manual tool handling")
         # Return a fallback that will trigger manual tool handling
         return None
 
@@ -308,39 +218,10 @@ def handle_tools_manually(prompt: str, llm, tools):
     # Tool detection and execution
     tool_results = []
     
-    # Weather tool detection
-    if any(keyword in prompt_lower for keyword in ["weather", "temperature", "climate", "forecast"]):
-        # Extract city (simple approach)
-        words = prompt.split()
-        city = "New York"  # default
-        for i, word in enumerate(words):
-            if word.lower() in ["in", "for", "at", "of"] and i + 1 < len(words):
-                city = words[i + 1].strip(".,!?")
-                break
-        
-        weather_result = get_weather.func(city)
-        tool_results.append(f"Weather Tool: {weather_result}")
-    
-    # Math tool detection  
-    if any(keyword in prompt_lower for keyword in ["calculate", "math", "compute"]) or any(op in prompt for op in ["+", "-", "*", "/", "="]):
-        # Extract expression (simple approach)
-        import re
-        math_pattern = r'[\d\+\-\*/\(\)\s\.]+'
-        expressions = re.findall(math_pattern, prompt)
-        if expressions:
-            expression = max(expressions, key=len).strip()
-            calc_result = calculate_math.func(expression)
-            tool_results.append(f"Calculator Tool: {calc_result}")
-    
     # Time tool detection
     if any(keyword in prompt_lower for keyword in ["time", "date", "clock", "when"]):
         time_result = get_current_time.func()
         tool_results.append(f"Time Tool: {time_result}")
-    
-    # Database search detection
-    if any(keyword in prompt_lower for keyword in ["search", "find", "about", "what is", "tell me about"]):
-        search_result = search_dummy_database.func(prompt)
-        tool_results.append(f"Database Search: {search_result}")
     
     # Combine prompt with tool results
     if tool_results:
@@ -361,15 +242,15 @@ Please provide a comprehensive response using the tool results above."""
 # Streamlit App
 def main():
     st.set_page_config(
-        page_title="Enhanced HuggingFace Chatbot",
+        page_title="Simple AI Chatbot",
         page_icon="🤖",
         layout="centered",
         initial_sidebar_state="expanded"
     )
     
     # Main title
-    st.title("🤖 Enhanced HuggingFace AI Chatbot")
-    st.markdown("*AI Assistant with LangChain Tool Binding*")
+    st.title("🤖 Simple AI Chatbot")
+    st.markdown("*AI Assistant with Tool Integration*")
     
     # Sidebar configuration
     with st.sidebar:
@@ -377,15 +258,15 @@ def main():
         
         api_endpoint = st.text_input(
             "API Endpoint",
-            value=st.session_state.get("api_endpoint", "http://localhost:8000"),
-            help="Your HuggingFace model API endpoint"
+            value=st.session_state.get("api_endpoint", "https://api.example.com/v1/chat/completions"),
+            help="Your API endpoint"
         )
         
         api_key = st.text_input(
             "API Key",
             type="password", 
             value=st.session_state.get("api_key", ""),
-            help="Your authentication API key"
+            help="Your API authentication key"
         )
         
         # Save configuration
@@ -395,19 +276,10 @@ def main():
         st.markdown("---")
         
         # Tool information
-        st.subheader("🛠️ Bound Tools")
+        st.subheader("🛠️ Available Tool")
         st.markdown("""
-        **✅ Weather Tool**  
-        Get weather for any city
-        
-        **✅ Calculator Tool**  
-        Perform math calculations
-        
         **✅ Time Tool**  
         Get current date/time
-        
-        **✅ Database Search**  
-        Search dummy database
         """)
         
         st.markdown("---")
@@ -416,9 +288,9 @@ def main():
         st.subheader("🤖 Agent Settings")
         
         use_agent = st.checkbox(
-            "Use LangChain Agent", 
-            value=st.session_state.get("use_agent", True),
-            help="Enable tool binding with LangChain agent"
+            "Try LangChain Agent", 
+            value=st.session_state.get("use_agent", False),
+            help="Try LangChain agent (will fallback to manual tools if not supported)"
         )
         st.session_state["use_agent"] = use_agent
         
@@ -471,12 +343,12 @@ def main():
                     logger.debug(f"💭 Processing user input: {prompt}")
                     
                     # Initialize LLM
-                    llm = HuggingFaceChatModel(api_endpoint=api_endpoint, api_key=api_key)
+                    llm = CustomChatModel(api_endpoint=api_endpoint, api_key=api_key)
                     
-                    if st.session_state.get("use_agent", True):
-                        logger.debug("🔧 Using agent with bound tools")
+                    if st.session_state.get("use_agent", False):
+                        logger.debug("🔧 Attempting to use LangChain agent with bound tools")
                         # Use agent with bound tools - let LLM decide when to use tools
-                        tools = [get_weather, calculate_math, get_current_time, search_dummy_database]
+                        tools = [get_current_time]
                         agent_executor = create_agent_with_tools(llm, tools)
                         
                         if agent_executor is not None:
@@ -500,13 +372,13 @@ def main():
                             logger.debug("✅ Agent execution completed")
                         else:
                             logger.debug("⚠️ Agent creation failed, falling back to manual tool handling")
+                            tools = [get_current_time]
                             response = handle_tools_manually(prompt, llm, tools)
                     else:
-                        logger.debug("🔧 Using direct LLM call without tools")
-                        # Direct LLM call without tools
-                        messages = [HumanMessage(content=prompt)]
-                        result = llm._generate(messages)
-                        response = result.generations[0].message.content
+                        logger.debug("🔧 Using manual tool handling (recommended)")
+                        # Manual tool handling - more reliable for this API
+                        tools = [get_current_time]
+                        response = handle_tools_manually(prompt, llm, tools)
                     
                     # Show debug info if enabled
                     if st.session_state.get("debug_mode", False):
@@ -536,27 +408,11 @@ def main():
     
     # Example prompts
     if len(st.session_state.messages) == 0:
-        st.markdown("### 💡 Try these tool-enabled examples:")
+        st.markdown("### 💡 Try this example:")
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("🌤️ Weather in Tokyo", use_container_width=True):
-                st.session_state.example_prompt = "What's the weather like in Tokyo?"
-                st.rerun()
-            
-            if st.button("🧮 Calculate 127 * 83", use_container_width=True):
-                st.session_state.example_prompt = "Calculate 127 * 83"
-                st.rerun()
-        
-        with col2:
-            if st.button("🕐 Current time", use_container_width=True):
-                st.session_state.example_prompt = "What time is it right now?"
-                st.rerun()
-            
-            if st.button("📚 Search for AI", use_container_width=True):
-                st.session_state.example_prompt = "Tell me about artificial intelligence"
-                st.rerun()
+        if st.button("🕐 What time is it?", use_container_width=True):
+            st.session_state.example_prompt = "What time is it right now?"
+            st.rerun()
         
         # Handle example prompts
         if "example_prompt" in st.session_state:
