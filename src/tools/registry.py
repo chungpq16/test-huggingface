@@ -6,6 +6,7 @@ from typing import List, Any
 from .hello import hello_tool
 from .weather import weather_tool
 from .calculator import calculator_tool
+from .translate import joke_tool
 
 
 class ToolRegistry:
@@ -15,7 +16,8 @@ class ToolRegistry:
         self._tools = [
             hello_tool,
             weather_tool,
-            calculator_tool
+            calculator_tool,
+            joke_tool  # New tool added automatically
         ]
     
     def get_all_tools(self) -> List[Any]:

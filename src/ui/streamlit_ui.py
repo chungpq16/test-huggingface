@@ -49,7 +49,10 @@ class ChatbotUI:
                 """)
                 
                 # Show available tools
-                if hasattr(self.agent, 'tools'):
+                if hasattr(self.agent, 'get_capabilities_summary'):
+                    capabilities = self.agent.get_capabilities_summary()
+                    st.markdown(capabilities)
+                elif hasattr(self.agent, 'tools'):
                     st.write("**Available Tools:**")
                     tool_descriptions = []
                     for tool in self.agent.tools.values():
