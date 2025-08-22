@@ -58,13 +58,14 @@ class HuggingFaceChatModel(BaseChatModel):
     def headers(self) -> Dict[str, str]:
         """Generate headers for API requests"""
         return {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "KeyId": self.api_key,
+            "Content-Type": "application/json",
+            "accept": "application/json"
         }
     
     @property
     def _llm_type(self) -> str:
-        return "huggingface-custom"
+        return "bosch-llama"
     
     def _generate(self, messages: List[CoreBaseMessage], **kwargs) -> ChatResult:
         """Generate response from HuggingFace API"""
@@ -95,13 +96,18 @@ class HuggingFaceChatModel(BaseChatModel):
         payload = {
             "messages": formatted_messages,
             "max_tokens": self.max_tokens,
-            "temperature": self.temperature
+            "temperature": self.temperature,
+            "model": "meta-llama/Meta-Llama-3-70B-Instruct"
         }
         
+        # Debug: Log headers and payload
+        logger.debug(f"🔑 API Headers: {dict(self.headers)}")
+        logger.debug(f"📦 API Payload: {json.dumps(payload, indent=2)}")
+        
         try:
-            logger.debug(f"🌐 Making API call to {self.api_endpoint.rstrip('/')}/v1/chat/completions")
+            logger.debug(f"🌐 Making API call to {self.api_endpoint}")
             response = requests.post(
-                f"{self.api_endpoint.rstrip('/')}/v1/chat/completions",
+                self.api_endpoint,
                 headers=self.headers,
                 json=payload,
                 timeout=30
@@ -120,7 +126,7 @@ class HuggingFaceChatModel(BaseChatModel):
             
         except Exception as e:
             logger.error(f"❌ API call failed: {str(e)}")
-            error_content = f"Error calling HuggingFace API: {str(e)}"
+            error_content = f"Error calling Bosch Llama API: {str(e)}"
             message = AIMessage(content=error_content)
             generation = ChatGeneration(message=message)
             return ChatResult(generations=[generation])
