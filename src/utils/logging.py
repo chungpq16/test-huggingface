@@ -9,8 +9,10 @@ import warnings
 class LoggerSetup:
     """Setup logging configuration"""
     
-    @staticmethod
-    def configure_logging():
+    def __init__(self):
+        self.configure_logging()
+    
+    def configure_logging(self):
         """Configure logging with file and console handlers"""
         # Suppress warnings
         warnings.filterwarnings("ignore", message=".*ScriptRunContext.*")
@@ -36,8 +38,10 @@ class LoggerSetup:
         # Reduce noise from third-party libraries
         for lib in ["watchdog", "urllib3", "httpx", "httpcore", "streamlit"]:
             logging.getLogger(lib).setLevel(logging.WARNING)
-        
-        return logging.getLogger(__name__)
+    
+    def get_logger(self, name: str = None) -> logging.Logger:
+        """Get a logger instance"""
+        return logging.getLogger(name or __name__)
 
 
 def get_logger(name: str = None) -> logging.Logger:
