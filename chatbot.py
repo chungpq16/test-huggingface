@@ -8,9 +8,9 @@ from datetime import datetime
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain.tools import tool
-from langchain.agents import create_openai_tools_agent, AgentExecutor
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import HumanMessage, AIMessage
+import re
 
 # Suppress warnings
 warnings.filterwarnings("ignore", message=".*ScriptRunContext.*")
@@ -109,9 +109,80 @@ def initialize_llm():
             logger.error("💡 SSL Certificate error detected. Try setting VERIFY_SSL=false in your .env file for development")
         raise
 
+# Simple agent class that works with basic LLM endpoints
+class SimpleAgent:
+    def __init__(self, llm, tools):
+        self.llm = llm
+        self.tools = {tool.name: tool for tool in tools}
+        self.tool_descriptions = "\n".join([
+            f"- {tool.name}: {tool.description}" for tool in tools
+        ])
+        
+    def invoke(self, input_data):
+        user_input = input_data["input"]
+        chat_history = input_data.get("chat_history", [])
+        
+        # Create system prompt with tool information
+        system_prompt = f"""You are a helpful assistant with access to the following tools:
+
+{self.tool_descriptions}
+
+If the user's request can be handled by one of these tools, respond with:
+TOOL_CALL: tool_name(parameter_value)
+
+For example:
+- If user says "Say hello to Alice", respond with: TOOL_CALL: hello_tool(Alice)
+- If user says "Hello there", you can respond directly or use: TOOL_CALL: hello_tool(World)
+
+Otherwise, respond naturally to the user's question.
+"""
+        
+        # Build messages
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ]
+        
+        # Add chat history
+        for msg in chat_history:
+            if isinstance(msg, HumanMessage):
+                messages.append({"role": "user", "content": msg.content})
+            elif isinstance(msg, AIMessage):
+                messages.append({"role": "assistant", "content": msg.content})
+        
+        # Add current user input
+        messages.append({"role": "user", "content": user_input})
+        
+        # Get LLM response
+        response = self.llm.invoke(messages)
+        response_text = response.content
+        
+        # Check if LLM wants to call a tool
+        tool_call_match = re.search(r'TOOL_CALL:\s*(\w+)\((.*?)\)', response_text)
+        
+        if tool_call_match:
+            tool_name = tool_call_match.group(1)
+            tool_param = tool_call_match.group(2).strip().strip("'\"")
+            
+            if tool_name in self.tools:
+                logger.info(f"🔧 Calling tool: {tool_name} with parameter: {tool_param}")
+                try:
+                    # Call the tool
+                    if tool_param and tool_param.lower() != "world":
+                        tool_result = self.tools[tool_name](tool_param)
+                    else:
+                        tool_result = self.tools[tool_name]()
+                    
+                    return {"output": tool_result}
+                except Exception as e:
+                    logger.error(f"Error calling tool {tool_name}: {str(e)}")
+                    return {"output": f"Sorry, I had trouble using the {tool_name} tool. {response_text}"}
+        
+        # Return direct response if no tool call
+        return {"output": response_text}
+
 # Create the agent
 def create_agent():
-    logger.info("🔧 Creating agent...")
+    logger.info("🔧 Creating simple agent...")
     
     try:
         llm = initialize_llm()
@@ -119,22 +190,11 @@ def create_agent():
         
         logger.debug(f"Available tools: {[tool.name for tool in tools]}")
         
-        # Create a prompt template for the agent
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a helpful assistant. You have access to tools. Use them when appropriate, or respond directly if no tools are needed."),
-            MessagesPlaceholder("chat_history", optional=True),
-            ("human", "{input}"),
-            MessagesPlaceholder("agent_scratchpad")
-        ])
+        # Create simple agent
+        agent = SimpleAgent(llm, tools)
         
-        logger.debug("Prompt template created")
-        
-        # Create the agent
-        agent = create_openai_tools_agent(llm, tools, prompt)
-        agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
-        
-        logger.info("✅ Agent created successfully")
-        return agent_executor
+        logger.info("✅ Simple agent created successfully")
+        return agent
         
     except Exception as e:
         logger.error(f"❌ Failed to create agent: {str(e)}")
