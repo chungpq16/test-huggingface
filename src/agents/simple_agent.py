@@ -32,9 +32,11 @@ class SimpleAgent:
 If the user's request can be handled by one of these tools, respond with:
 TOOL_CALL: tool_name(parameter_value)
 
-For example:
+Examples:
 - If user says "Say hello to Alice", respond with: TOOL_CALL: hello_tool(Alice)
-- If user says "Hello there", you can respond directly or use: TOOL_CALL: hello_tool(World)
+- If user says "What's the weather in Tokyo?", respond with: TOOL_CALL: weather_tool(Tokyo)
+- If user says "Calculate 15 * 8 + 12", respond with: TOOL_CALL: calculator_tool(15 * 8 + 12)
+- If user says "Hello there", respond with: TOOL_CALL: hello_tool(World)
 
 Otherwise, respond naturally to the user's question.
 """
@@ -71,11 +73,19 @@ Otherwise, respond naturally to the user's question.
         logger.info(f"🔧 Calling tool: {tool_name} with parameter: {tool_param}")
         
         try:
-            # Prepare tool input
-            if tool_param and tool_param.lower() != "world":
-                tool_input = {"name": tool_param}
+            # Prepare tool input based on tool type
+            if tool_name == "hello_tool":
+                if tool_param and tool_param.lower() != "world":
+                    tool_input = {"name": tool_param}
+                else:
+                    tool_input = {"name": "World"}
+            elif tool_name == "weather_tool":
+                tool_input = {"location": tool_param}
+            elif tool_name == "calculator_tool":
+                tool_input = {"expression": tool_param}
             else:
-                tool_input = {"name": "World"}
+                # Default case - try to guess the parameter name
+                tool_input = {tool_param: tool_param} if tool_param else {}
             
             # Execute tool
             result = self.tools[tool_name].invoke(tool_input)
@@ -83,7 +93,7 @@ Otherwise, respond naturally to the user's question.
             
         except Exception as e:
             logger.error(f"Error calling tool {tool_name}: {str(e)}")
-            return f"Sorry, I had trouble using the {tool_name} tool."
+            return f"Sorry, I had trouble using the {tool_name} tool: {str(e)}"
         
     def invoke(self, input_data: Dict[str, Any]) -> Dict[str, str]:
         """Main invoke method for the agent"""
