@@ -53,7 +53,11 @@ class HuggingFaceChatModel(BaseChatModel):
             api_key=api_key,
             **kwargs
         )
-        self.headers = {
+    
+    @property
+    def headers(self) -> Dict[str, str]:
+        """Generate headers for API requests"""
+        return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
