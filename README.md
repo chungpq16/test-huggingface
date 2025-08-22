@@ -20,17 +20,25 @@ pip install -r requirements.txt
 
 ### 2. Configure Your API
 
-You have two app options:
+You have three app options:
 
-#### Option A: Simple App (Recommended)
+#### Option A: Tool-Bound App (Recommended for Tool Binding)
+```bash
+streamlit run tool_bound_app.py
+```
+**Features**: Automatic tool detection and binding, simple architecture
+
+#### Option B: Enhanced App (LangChain Integration)
+```bash
+streamlit run enhanced_app.py
+```
+**Features**: Full LangChain integration with proper tool binding
+
+#### Option C: Simple App (Basic Functionality)
 ```bash
 streamlit run simple_app.py
 ```
-
-#### Option B: Advanced App (with LangChain)
-```bash
-streamlit run app.py
-```
+**Features**: Manual tool routing, no binding
 
 ### 3. Configure in the App
 
@@ -69,6 +77,41 @@ And response format:
 }
 ```
 
+## Tool Binding Explanation
+
+### What is Tool Binding?
+
+Tool binding allows the LLM to automatically detect when to use specific tools based on user input and execute them seamlessly. Instead of manually routing requests, the LLM intelligently determines which tools are needed.
+
+### How It Works
+
+1. **Tool Registration**: Tools are registered with descriptions and trigger keywords
+2. **Automatic Detection**: The system analyzes user input for tool-relevant keywords  
+3. **Tool Execution**: Matching tools are automatically executed
+4. **Context Integration**: Tool results are provided to the LLM for comprehensive responses
+
+### Available Bound Tools
+
+#### 🌤️ Weather Tool
+- **Triggers**: "weather", "temperature", "climate", "forecast"
+- **Function**: Returns weather information for cities
+- **Example**: "What's the weather in Tokyo?" → Automatically calls weather tool
+
+#### 🧮 Calculator Tool  
+- **Triggers**: "calculate", "math", "+", "-", "*", "/"
+- **Function**: Performs mathematical calculations
+- **Example**: "Calculate 15 * 7" → Automatically calls calculator tool
+
+#### 🕐 Time Tool
+- **Triggers**: "time", "date", "clock", "now"
+- **Function**: Returns current date and time
+- **Example**: "What time is it?" → Automatically calls time tool
+
+#### ℹ️ Information Tool
+- **Triggers**: "what", "tell me", "about", "explain"
+- **Function**: Searches knowledge database
+- **Example**: "Tell me about Python" → Automatically calls info tool
+
 ## Tool Usage Examples
 
 ### Weather Tool
@@ -90,24 +133,30 @@ And response format:
 
 ```
 test-huggingface/
-├── app.py              # Advanced chatbot with LangChain
-├── simple_app.py       # Simple chatbot (recommended)
-├── requirements.txt    # Python dependencies
-├── README.md          # This file
-└── PRD.md             # Product requirements document
+├── tool_bound_app.py      # Tool-bound chatbot (recommended)
+├── enhanced_app.py        # LangChain-based tool binding
+├── simple_app.py          # Basic chatbot (manual routing)
+├── app.py                 # Original LangChain version
+├── requirements.txt       # Python dependencies
+├── config_template.py     # Configuration template
+├── start.sh              # Quick start script
+├── README.md             # This file
+└── PRD.md                # Product requirements
 ```
 
 ## Features Comparison
 
-| Feature | simple_app.py | app.py |
-|---------|---------------|--------|
-| HuggingFace API Integration | ✅ | ✅ |
-| Weather Tool | ✅ | ✅ |
-| Calculator Tool | ✅ | ✅ |
-| Time Tool | ✅ | ❌ |
-| LangChain Integration | ❌ | ✅ |
-| Complexity | Low | High |
-| Maintenance | Easy | Complex |
+| Feature | tool_bound_app.py | enhanced_app.py | simple_app.py | app.py |
+|---------|-------------------|-----------------|---------------|--------|
+| HuggingFace API | ✅ | ✅ | ✅ | ✅ |
+| **Tool Binding** | ✅ **Auto** | ✅ **LangChain** | ❌ Manual | ❌ Manual |
+| Weather Tool | ✅ | ✅ | ✅ | ✅ |
+| Calculator Tool | ✅ | ✅ | ✅ | ✅ |
+| Time Tool | ✅ | ✅ | ✅ | ❌ |
+| Info/Search Tool | ✅ | ✅ | ❌ | ❌ |
+| Complexity | Low | High | Low | Medium |
+| Performance | Fast | Medium | Fast | Medium |
+| **Recommended** | ✅ | For LangChain users | Basic use | Legacy |
 
 ## Troubleshooting
 
