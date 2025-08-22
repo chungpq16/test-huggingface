@@ -42,13 +42,23 @@ class ChatbotUI:
             with st.expander("ℹ️ About"):
                 st.write("""
                 This chatbot uses:
+                - **LangGraph** for advanced agent workflows
                 - **LangChain** for LLM integration
                 - **Meta-Llama-3-70B-Instruct** model
-                - **Custom tool system** for enhanced capabilities
+                - **Tool binding** for enhanced capabilities
+                """)
                 
-                Try saying:
-                - "Hello there!"
-                - "Say hello to Alice"
+                # Show available tools
+                if hasattr(self.agent, 'get_tool_descriptions'):
+                    st.write("**Available Tools:**")
+                    tool_descriptions = self.agent.get_tool_descriptions()
+                    st.markdown(tool_descriptions)
+                
+                st.write("""
+                **Try these examples:**
+                - "Hello there!" or "Say hello to Alice"
+                - "What's the weather in Tokyo?"
+                - "Calculate 15 * 8 + 12"
                 - "What can you help me with?"
                 """)
     
@@ -103,14 +113,14 @@ class ChatbotUI:
         """Main UI loop"""
         # Page configuration
         st.set_page_config(
-            page_title="Simple Chatbot",
+            page_title="LangGraph Chatbot",
             page_icon="🤖",
             layout="wide"
         )
         
         # Main title
-        st.title("🤖 Simple LangChain Chatbot")
-        st.markdown("*Powered by Meta-Llama-3-70B-Instruct with custom tools*")
+        st.title("🤖 LangGraph AI Agent Chatbot")
+        st.markdown("*Powered by Meta-Llama-3-70B-Instruct with LangGraph and tool binding*")
         
         # Display sidebar
         self._display_sidebar()

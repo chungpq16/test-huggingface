@@ -7,7 +7,7 @@ from src.config.settings import Config
 from src.utils.logging import LoggerSetup
 from src.tools.registry import ToolRegistry
 from src.llm.manager import LLMManager
-from src.agents.simple_agent import SimpleAgent
+from src.agents.langgraph_agent import LangGraphAgent
 from src.ui.streamlit_ui import ChatbotUI
 
 
@@ -21,12 +21,12 @@ def main():
         logger_setup = LoggerSetup()
         logger = logger_setup.get_logger(__name__)
         
-        logger.info("🚀 Starting Simple LangChain Chatbot...")
+        logger.info("🚀 Starting LangGraph Chatbot...")
         
         # Initialize tool registry
         tool_registry = ToolRegistry()
         tools = tool_registry.get_all_tools()
-        logger.info(f"📦 Loaded {len(tools)} tools")
+        logger.info(f"📦 Loaded {len(tools)} tools: {tool_registry.get_tool_names()}")
         
         # Initialize LLM manager
         llm_manager = LLMManager(config)
@@ -36,9 +36,9 @@ def main():
         api_status = llm_manager.test_connection()
         logger.info(f"🌐 API Status: {api_status}")
         
-        # Initialize agent
-        agent = SimpleAgent(llm=llm, tools=tools)
-        logger.info("🤖 Agent initialized")
+        # Initialize LangGraph agent
+        agent = LangGraphAgent(llm=llm, tools=tools)
+        logger.info("🤖 LangGraph Agent initialized")
         
         # Initialize and run UI
         ui = ChatbotUI(agent)

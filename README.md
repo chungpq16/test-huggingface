@@ -1,15 +1,16 @@
-# Simple LangChain Chatbot
+# LangGraph AI Agent Chatbot
 
-A simple chatbot built with LangChain and Streamlit that connects to custom LLM endpoints with tool integration.
+A sophisticated AI agent chatbot built with LangGraph, LangChain, and Streamlit that connects to custom LLM endpoints with advanced tool binding.
 
 ## Features
 
-- 🤖 **LangChain Integration**: Uses LangChain for LLM interactions
+- 🤖 **LangGraph Integration**: Advanced agent workflows with state management
+- 🔧 **Tool Binding**: Native tool binding with automatic function calling
 - 🎨 **Streamlit UI**: Clean, interactive web interface
-- 🔧 **Custom Tools**: Extensible tool system (currently includes hello tool)
 - 🌐 **Custom Endpoints**: Works with OpenAI-compatible API endpoints
 - 📝 **Comprehensive Logging**: File and console logging with configurable levels
 - 🔒 **SSL Configuration**: Configurable SSL verification for development
+- ⚡ **Multiple Tools**: Hello, weather, and calculator tools included
 
 ## Architecture
 
@@ -25,14 +26,17 @@ src/
 │   └── logging.py           # Logging setup
 ├── tools/
 │   ├── __init__.py
-│   ├── hello.py             # Hello tool implementation
+│   ├── hello.py             # Hello/greeting tool
+│   ├── weather.py           # Weather information tool
+│   ├── calculator.py        # Math calculation tool
 │   └── registry.py          # Tool registry
 ├── llm/
 │   ├── __init__.py
 │   └── manager.py           # LLM initialization and management
 ├── agents/
 │   ├── __init__.py
-│   └── simple_agent.py      # Simple agent implementation
+│   ├── simple_agent.py      # Simple pattern-matching agent
+│   └── langgraph_agent.py   # LangGraph agent with tool binding
 └── ui/
     ├── __init__.py
     └── streamlit_ui.py       # Streamlit interface
@@ -76,9 +80,10 @@ LOG_LEVEL=INFO
 ## Usage
 
 1. **Basic Chat**: Simply type messages and get responses
-2. **Tool Usage**: Try phrases like:
-   - "Hello there!" (direct response)
-   - "Say hello to Alice" (uses hello tool)
+2. **Tool Usage**: The agent automatically determines when to use tools:
+   - "Hello there!" or "Say hello to Alice" (greeting tool)
+   - "What's the weather in Tokyo?" (weather tool)
+   - "Calculate 15 * 8 + 12" (calculator tool)
    - "What can you help me with?" (general assistance)
 
 ## Development
@@ -137,6 +142,7 @@ Check the `logs/` directory for detailed debug information. Logs are organized b
 
 ## Dependencies
 
+- **LangGraph**: Advanced agent workflows and state management
 - **LangChain**: LLM integration and tool management
 - **Streamlit**: Web interface
 - **httpx**: HTTP client with SSL configuration
