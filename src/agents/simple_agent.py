@@ -7,6 +7,7 @@ import inspect
 from typing import Dict, List, Any, Optional
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, AIMessage
+from langchain.prompts import PromptTemplate
 from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -17,6 +18,19 @@ class SimpleAgent:
     
     TOOL_CALL_PATTERN = r'TOOL_CALL:\s*(\w+)\((.*?)\)'
     
+    # System prompt template
+    SYSTEM_PROMPT_TEMPLATE = PromptTemplate(
+        input_variables=["tool_descriptions"],
+        template="""You are a helpful AI assistant with access to these tools:
+
+{tool_descriptions}
+
+To use a tool, respond with: TOOL_CALL: tool_name(parameter)
+
+Otherwise, respond naturally.
+"""
+    )
+    
     def __init__(self, llm: ChatOpenAI, tools: List[Any]):
         self.llm = llm
         self.tools = {tool.name: tool for tool in tools}
@@ -24,48 +38,13 @@ class SimpleAgent:
             f"- {tool.name}: {tool.description}" for tool in tools
         ])
         
-    def _create_system_prompt(self) -> str:
-        """Create system prompt with tool information"""
-        # Generate dynamic examples based on available tools
-        tool_examples = []
-        for tool_name, tool in self.tools.items():
-            if tool_name == "hello_tool":
-                tool_examples.append(f'- For greetings: "Say hello to Alice" → TOOL_CALL: {tool_name}(Alice)')
-            elif tool_name == "weather_tool":
-                tool_examples.append(f'- For weather queries: "What\'s the weather in Tokyo?" → TOOL_CALL: {tool_name}(Tokyo)')
-            elif tool_name == "calculator_tool":
-                tool_examples.append(f'- For calculations: "Calculate 15 * 8 + 12" → TOOL_CALL: {tool_name}(15 * 8 + 12)')
-            else:
-                # Generic example for unknown tools
-                tool_examples.append(f'- For {tool_name}: Use relevant input → TOOL_CALL: {tool_name}(parameter)')
-        
-        examples_text = "\n".join(tool_examples) if tool_examples else "- TOOL_CALL: tool_name(parameter)"
-        
-        return f"""You are a helpful AI assistant with access to specialized tools for enhanced capabilities.
-
-Available Tools:
-{self.tool_descriptions}
-
-Tool Usage Protocol:
-When a user request can be handled by one of these tools, respond with the exact format:
-TOOL_CALL: tool_name(parameter_value)
-
-Examples:
-{examples_text}
-
-Guidelines:
-1. Analyze the user's intent to determine if a tool is needed
-2. Use tools when they can provide more accurate or specialized responses
-3. Extract the relevant parameter from the user's request
-4. If no tool is appropriate, respond naturally with your general knowledge
-5. Always use the exact TOOL_CALL format when invoking tools
-
-Remember: You are intelligent enough to understand context and choose the right tool for the task.
-"""
-    
     def _build_messages(self, user_input: str, chat_history: List[Any]) -> List[Dict[str, str]]:
         """Build messages list for LLM"""
-        messages = [{"role": "system", "content": self._create_system_prompt()}]
+        # Generate system prompt using template
+        system_prompt = self.SYSTEM_PROMPT_TEMPLATE.format(
+            tool_descriptions=self.tool_descriptions
+        )
+        messages = [{"role": "system", "content": system_prompt}]
         
         # Add chat history
         for msg in chat_history:
