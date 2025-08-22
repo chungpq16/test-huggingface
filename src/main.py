@@ -1,5 +1,5 @@
 """
-Main application entry point for the Simple LangChain Chatbot.
+Main application entry point for the Simple AI Agent Chatbot.
 """
 
 import os
@@ -7,7 +7,7 @@ from src.config.settings import Config
 from src.utils.logging import LoggerSetup
 from src.tools.registry import ToolRegistry
 from src.llm.manager import LLMManager
-from src.agents.langgraph_agent import LangGraphAgent
+from src.agents.simple_agent import SimpleAgent
 from src.ui.streamlit_ui import ChatbotUI
 
 
@@ -21,7 +21,7 @@ def main():
         logger_setup = LoggerSetup()
         logger = logger_setup.get_logger(__name__)
         
-        logger.info("🚀 Starting LangGraph Chatbot...")
+        logger.info("🚀 Starting Simple AI Agent Chatbot...")
         
         # Initialize tool registry
         tool_registry = ToolRegistry()
@@ -36,9 +36,9 @@ def main():
         api_status = llm_manager.test_connection()
         logger.info(f"🌐 API Status: {api_status}")
         
-        # Initialize LangGraph agent
-        agent = LangGraphAgent(llm=llm, tools=tools)
-        logger.info("🤖 LangGraph Agent initialized")
+        # Initialize Simple agent
+        agent = SimpleAgent(llm=llm, tools=tools)
+        logger.info("🤖 Simple Agent initialized")
         
         # Initialize and run UI
         ui = ChatbotUI(agent)

@@ -1,13 +1,13 @@
-# LangGraph AI Agent Chatbot
+# Simple AI Agent Chatbot
 
-A sophisticated AI agent chatbot built with LangGraph, LangChain, and Streamlit that connects to custom LLM endpoints with advanced tool binding.
+A clean and efficient AI agent chatbot built with LangChain and Streamlit. Uses intelligent pattern matching for tool routing that works with any OpenAI-compatible endpoint.
 
 ## Features
 
-- 🤖 **LangGraph Integration**: Advanced agent workflows with state management
-- 🔧 **Tool Binding**: Native tool binding with automatic function calling
+- 🤖 **Simple Architecture**: Reliable pattern-matching agent that works with any LLM endpoint
+- 🔧 **Intelligent Tool Routing**: Smart tool detection and execution
 - 🎨 **Streamlit UI**: Clean, interactive web interface
-- 🌐 **Custom Endpoints**: Works with OpenAI-compatible API endpoints
+- 🌐 **Universal Compatibility**: Works with any OpenAI-compatible API endpoint
 - 📝 **Comprehensive Logging**: File and console logging with configurable levels
 - 🔒 **SSL Configuration**: Configurable SSL verification for development
 - ⚡ **Multiple Tools**: Hello, weather, and calculator tools included
@@ -35,8 +35,7 @@ src/
 │   └── manager.py           # LLM initialization and management
 ├── agents/
 │   ├── __init__.py
-│   ├── simple_agent.py      # Simple pattern-matching agent
-│   └── langgraph_agent.py   # LangGraph agent with tool binding
+│   └── simple_agent.py      # Pattern-matching agent implementation
 └── ui/
     ├── __init__.py
     └── streamlit_ui.py       # Streamlit interface
@@ -111,12 +110,12 @@ LOG_LEVEL=INFO
 
 ### Customizing the Agent
 
-The `SimpleAgent` class in `src/agents/simple_agent.py` handles tool calling through pattern matching. You can customize:
+The `SimpleAgent` class in `src/agents/simple_agent.py` handles tool calling through intelligent pattern matching. You can customize:
 
-- Tool call patterns
-- Response formatting
-- Error handling
-- Chat history management
+- Tool call patterns and recognition
+- Response formatting and style
+- Error handling and fallback behavior
+- Chat history management and context
 
 ### Configuration
 
@@ -132,9 +131,13 @@ The `Config` class in `src/config/settings.py` manages all configuration. Add ne
 
 Set `VERIFY_SSL=false` in your `.env` file for development environments.
 
-### Tool Calling Issues
+### Tool Calling
 
-The agent uses a simple pattern-matching approach for tool calling. Make sure your LLM endpoint supports basic text generation (doesn't need advanced function calling).
+The agent uses intelligent pattern matching to detect when to use tools. This approach works with any LLM endpoint and doesn't require special function calling support. The agent looks for phrases like:
+
+- Greetings → Uses hello tool
+- Weather queries → Uses weather tool  
+- Math expressions → Uses calculator tool
 
 ### Debug Logging
 
@@ -142,7 +145,6 @@ Check the `logs/` directory for detailed debug information. Logs are organized b
 
 ## Dependencies
 
-- **LangGraph**: Advanced agent workflows and state management
 - **LangChain**: LLM integration and tool management
 - **Streamlit**: Web interface
 - **httpx**: HTTP client with SSL configuration
