@@ -36,18 +36,25 @@ logger = setup_logging()
 class HuggingFaceChatModel(BaseChatModel):
     """Custom LangChain-compatible LLM for HuggingFace API"""
     
-    api_endpoint: str
-    api_key: str
-    model_name: str = "huggingface-model"
-    max_tokens: int = 1000
-    temperature: float = 0.7
+    api_endpoint: str = Field(..., description="HuggingFace API endpoint")
+    api_key: str = Field(..., description="API key for authentication")
+    model_name: str = Field(default="huggingface-model", description="Model name")
+    max_tokens: int = Field(default=1000, description="Maximum tokens in response")
+    temperature: float = Field(default=0.7, description="Temperature for generation")
+    
+    class Config:
+        """Pydantic configuration"""
+        arbitrary_types_allowed = True
     
     def __init__(self, api_endpoint: str, api_key: str, **kwargs):
-        super().__init__(**kwargs)
-        self.api_endpoint = api_endpoint.rstrip('/')
-        self.api_key = api_key
+        # Initialize with explicit field values
+        super().__init__(
+            api_endpoint=api_endpoint,
+            api_key=api_key,
+            **kwargs
+        )
         self.headers = {
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
     
@@ -88,9 +95,9 @@ class HuggingFaceChatModel(BaseChatModel):
         }
         
         try:
-            logger.debug(f"🌐 Making API call to {self.api_endpoint}/v1/chat/completions")
+            logger.debug(f"🌐 Making API call to {self.api_endpoint.rstrip('/')}/v1/chat/completions")
             response = requests.post(
-                f"{self.api_endpoint}/v1/chat/completions",
+                f"{self.api_endpoint.rstrip('/')}/v1/chat/completions",
                 headers=self.headers,
                 json=payload,
                 timeout=30
