@@ -86,8 +86,30 @@ class LlamaSharedLLM(BaseChatModel):
         
         # Add tools if bound
         if hasattr(self, 'bound_tools') and self.bound_tools:
-            payload["tools"] = [tool.to_openai_format() for tool in self.bound_tools]
-            logger.debug(f"Added {len(self.bound_tools)} tools to payload")
+            try:
+                # Convert tools to OpenAI format
+                tools_list = []
+                for tool in self.bound_tools:
+                    if hasattr(tool, 'to_openai_format'):
+                        tools_list.append(tool.to_openai_format())
+                    elif hasattr(tool, 'to_openai_tool'):
+                        tools_list.append(tool.to_openai_tool())
+                    else:
+                        # Fallback: create tool format manually
+                        tools_list.append({
+                            "type": "function",
+                            "function": {
+                                "name": tool.name,
+                                "description": tool.description,
+                                "parameters": tool.args_schema.schema() if hasattr(tool, 'args_schema') else {}
+                            }
+                        })
+                
+                payload["tools"] = tools_list
+                logger.debug(f"Added {len(tools_list)} tools to payload")
+            except Exception as e:
+                logger.warning(f"Failed to add tools: {e}")
+                # Continue without tools if there's an issue
         
         # Add any additional kwargs
         payload.update(kwargs)
@@ -121,8 +143,22 @@ class LlamaSharedLLM(BaseChatModel):
             response_json = response.json()
             logger.debug(f"Response: {json.dumps(response_json, indent=2)}")
             
-            # Extract content
-            content = response_json["choices"][0]["message"]["content"]
+            # Extract content from response
+            if "choices" not in response_json or not response_json["choices"]:
+                raise ValueError("No choices in response")
+            
+            choice = response_json["choices"][0]
+            if "message" not in choice:
+                raise ValueError("No message in choice")
+            
+            message = choice["message"]
+            content = message.get("content", "")
+            
+            # Handle tool calls if present
+            tool_calls = message.get("tool_calls")
+            if tool_calls:
+                logger.debug(f"Received tool calls: {tool_calls}")
+                # For now, just include the content - tool handling is done by LangGraph
             
             # Create ChatGeneration
             generation = ChatGeneration(message=AIMessage(content=content))

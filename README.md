@@ -26,7 +26,6 @@ A minimal chatbot application using LlamaShared API with LangChain, LangGraph, a
 
 3. **Run the application:**
    ```bash
-   cd frontend
    streamlit run app.py
    ```
 
@@ -41,13 +40,13 @@ A minimal chatbot application using LlamaShared API with LangChain, LangGraph, a
 ## Project Structure
 
 ```
-llamashared-chatbot/
+test-huggingface/
 ├── llm/                    # LLM integration
 │   └── llamashared_llm.py  # Custom LangChain LLM
 ├── tools/                  # Tool definitions
 │   └── tools.py           # Hello & Calculator tools
-├── frontend/              # Streamlit interface
-│   └── app.py            # Main application
+├── frontend/              # Legacy frontend (deprecated)
+├── app.py                 # Main Streamlit application
 ├── requirements.txt       # Dependencies
 ├── .env.example          # Environment template
 └── README.md            # This file
