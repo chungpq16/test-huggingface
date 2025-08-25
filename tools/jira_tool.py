@@ -142,20 +142,19 @@ class JiraGetIssuesTool(BaseTool):
     description: str = "Get Jira issues from all projects or filter by specific project. Use this when user asks about Jira issues, wants to see project issues, or needs to list tickets."
     args_schema: Type[BaseModel] = JiraGetIssuesInput
     
-    def __init__(self):
-        super().__init__()
-        self.jira_client = JiraClient()
-    
     def _run(self, project_key: Optional[str] = None, limit: int = 50) -> str:
         """Execute the Jira get issues tool"""
         logger.info(f"Jira tool called with project_key: {project_key}, limit: {limit}")
         
+        # Create Jira client instance
+        jira_client = JiraClient()
+        
         try:
             # Use default project if none specified
-            effective_project = project_key or self.jira_client.default_project
+            effective_project = project_key or jira_client.default_project
             
             # Get issues from Jira
-            issues = self.jira_client.search_issues(
+            issues = jira_client.search_issues(
                 project_key=effective_project,
                 max_results=limit
             )
@@ -188,7 +187,7 @@ class JiraGetIssuesTool(BaseTool):
             
             # Add configuration note
             result_lines.append("")
-            result_lines.append(f"✅ Connected to Jira: {self.jira_client.base_url}")
+            result_lines.append(f"✅ Connected to Jira: {jira_client.base_url}")
             
             result = "\n".join(result_lines)
             logger.info(f"Successfully retrieved {len(issues)} issues")
