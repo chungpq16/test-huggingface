@@ -13,8 +13,8 @@ class HelloToolInput(BaseModel):
 class HelloTool(BaseTool):
     """A simple hello tool that greets users"""
     
-    name = "hello_tool"
-    description = "A simple greeting tool that says hello to someone. Use this when user asks for greetings or wants to say hello."
+    name: str = "hello_tool"
+    description: str = "A simple greeting tool that says hello to someone. Use this when user asks for greetings or wants to say hello."
     args_schema: Type[BaseModel] = HelloToolInput
     
     def _run(self, name: str = "World") -> str:
@@ -31,8 +31,8 @@ class CalculatorToolInput(BaseModel):
 class CalculatorTool(BaseTool):
     """A simple calculator tool that evaluates mathematical expressions"""
     
-    name = "calculator_tool"
-    description = "A calculator tool that can perform basic mathematical operations. Use this when user asks for calculations or mathematical operations."
+    name: str = "calculator_tool"
+    description: str = "A calculator tool that can perform basic mathematical operations. Use this when user asks for calculations or mathematical operations."
     args_schema: Type[BaseModel] = CalculatorToolInput
     
     def _run(self, expression: str) -> str:
