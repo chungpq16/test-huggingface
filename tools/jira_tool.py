@@ -1,15 +1,14 @@
 import logging
-import requests
-import json
 from typing import Optional, Type, List, Dict
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
+from atlassian import Jira
 from config import config
 
 logger = logging.getLogger(__name__)
 
 class JiraClient:
-    """Simple Jira API client"""
+    """Simple Jira API client using atlassian library"""
     
     def __init__(self):
         self.base_url = config.JIRA_SERVER_URL
@@ -18,26 +17,25 @@ class JiraClient:
         self.default_project = config.JIRA_PROJECT
         self.verify_ssl = config.VERIFY_SSL
         
-        # Setup authentication
-        self.auth = (self.username, self.api_token) if self.username and self.api_token else None
-        
-        # Common headers
-        self.headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-        }
-        
         self.is_configured = bool(self.base_url and self.username and self.api_token)
         
         if self.is_configured:
+            # Initialize Jira client from atlassian library
+            self.jira = Jira(
+                url=self.base_url,
+                username=self.username,
+                password=self.api_token,  # API token is used as password
+                verify_ssl=self.verify_ssl
+            )
             logger.info(f"Jira client configured for: {self.base_url}")
             if self.default_project:
                 logger.info(f"Default project: {self.default_project}")
         else:
+            self.jira = None
             logger.error("Jira client not properly configured - please set JIRA_SERVER_URL, JIRA_USERNAME, and JIRA_API_TOKEN in .env file")
     
     def search_issues(self, jql: str = "", project_key: Optional[str] = None, max_results: int = 50) -> List[Dict]:
-        """Search for Jira issues"""
+        """Search for Jira issues using atlassian library"""
         
         if not self.is_configured:
             raise Exception("Jira client not configured. Please set JIRA_SERVER_URL, JIRA_USERNAME, and JIRA_API_TOKEN in .env file")
@@ -55,36 +53,27 @@ class JiraClient:
         else:
             final_jql = "ORDER BY created DESC"
         
-        # API endpoint
-        url = f"{self.base_url}/rest/api/2/search"
-        
-        params = {
-            "jql": final_jql,
-            "maxResults": max_results,
-            "fields": "key,summary,status,assignee,project,created,updated,priority,labels,description"
-        }
-        
         logger.debug(f"Searching Jira with JQL: {final_jql}")
         
-        response = requests.get(
-            url,
-            headers=self.headers,
-            auth=self.auth,
-            params=params,
-            verify=self.verify_ssl,
-            timeout=30
-        )
-        
-        response.raise_for_status()
-        result = response.json()
-        
-        issues = []
-        for issue_data in result.get("issues", []):
-            issue = self._format_issue(issue_data)
-            issues.append(issue)
-        
-        logger.info(f"Found {len(issues)} Jira issues")
-        return issues
+        try:
+            # Use atlassian library to search issues
+            result = self.jira.jql(
+                jql=final_jql,
+                limit=max_results,
+                fields="key,summary,status,assignee,project,created,updated,priority,labels,description"
+            )
+            
+            issues = []
+            for issue_data in result.get("issues", []):
+                issue = self._format_issue(issue_data)
+                issues.append(issue)
+            
+            logger.info(f"Found {len(issues)} Jira issues")
+            return issues
+            
+        except Exception as e:
+            logger.error(f"Error searching Jira issues: {str(e)}")
+            raise e
     
     def _format_issue(self, issue_data: Dict) -> Dict:
         """Format Jira issue data"""
