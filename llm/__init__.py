@@ -4,6 +4,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from langchain.llms.base import LLM
 from langchain.callbacks.manager import CallbackManagerForLLMRun
+from pydantic import Field
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -11,23 +12,25 @@ logger = logging.getLogger(__name__)
 class CustomLLM(LLM):
     """Custom LLM implementation for the LLM farm API"""
     
-    api_url: str
-    api_key: str
-    model: str
-    max_tokens: int
-    temperature: float
-    top_p: float
-    verify_ssl: bool
+    api_url: str = Field(default_factory=lambda: config.LLM_API_URL)
+    api_key: str = Field(default_factory=lambda: config.LLM_API_KEY)
+    model: str = Field(default_factory=lambda: config.LLM_MODEL)
+    max_tokens: int = Field(default_factory=lambda: config.MAX_TOKENS)
+    temperature: float = Field(default_factory=lambda: config.TEMPERATURE)
+    top_p: float = Field(default_factory=lambda: config.TOP_P)
+    verify_ssl: bool = Field(default_factory=lambda: config.VERIFY_SSL)
     
     def __init__(self, **kwargs):
+        # Set defaults from config if not provided in kwargs
+        kwargs.setdefault('api_url', config.LLM_API_URL)
+        kwargs.setdefault('api_key', config.LLM_API_KEY)
+        kwargs.setdefault('model', config.LLM_MODEL)
+        kwargs.setdefault('max_tokens', config.MAX_TOKENS)
+        kwargs.setdefault('temperature', config.TEMPERATURE)
+        kwargs.setdefault('top_p', config.TOP_P)
+        kwargs.setdefault('verify_ssl', config.VERIFY_SSL)
+        
         super().__init__(**kwargs)
-        self.api_url = config.LLM_API_URL
-        self.api_key = config.LLM_API_KEY
-        self.model = config.LLM_MODEL
-        self.max_tokens = config.MAX_TOKENS
-        self.temperature = config.TEMPERATURE
-        self.top_p = config.TOP_P
-        self.verify_ssl = config.VERIFY_SSL
         
         logger.info(f"Initialized CustomLLM with model: {self.model}")
         logger.debug(f"API URL: {self.api_url}")
