@@ -27,6 +27,12 @@ class Config:
     TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.7"))
     TOP_P: float = float(os.getenv("TOP_P", "1.0"))
     
+    # Jira Configuration
+    JIRA_SERVER_URL: str = os.getenv("JIRA_SERVER_URL", "")
+    JIRA_USERNAME: str = os.getenv("JIRA_USERNAME", "")
+    JIRA_API_TOKEN: str = os.getenv("JIRA_API_TOKEN", "")
+    JIRA_PROJECT: str = os.getenv("JIRA_PROJECT", "")
+    
     @classmethod
     def setup_logging(cls):
         """Setup logging configuration"""

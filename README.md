@@ -76,6 +76,18 @@ A minimal Streamlit application that integrates with a custom LLM farm API using
 - `TEMPERATURE`: Model temperature (0.0-1.0)
 - `TOP_P`: Model top_p parameter
 
+### Jira Configuration (Optional)
+
+To connect to a real Jira instance:
+
+```bash
+JIRA_SERVER_URL=https://your-company.atlassian.net
+JIRA_USERNAME=your-email@company.com
+JIRA_API_TOKEN=your_jira_api_token
+```
+
+**Note**: If Jira is not configured, the tool will use mock data for demonstration.
+
 ### SSL Configuration
 
 If you're using a self-signed certificate or need to disable SSL verification:
@@ -95,6 +107,14 @@ VERIFY_SSL=false
 - **Name**: `calculator_tool`
 - **Description**: Performs basic mathematical calculations
 - **Usage**: "Calculate 2+2" or "What's 15*7?"
+
+### Jira Issues Tool
+- **Name**: `jira_get_issues`
+- **Description**: Retrieves Jira issues with optional project filtering
+- **Usage**: 
+  - "Show me all Jira issues"
+  - "Get issues from project DEMO"
+  - "List tickets from ABC project"
 
 ## API Integration
 
