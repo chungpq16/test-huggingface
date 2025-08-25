@@ -91,18 +91,7 @@ class JiraClient:
                 match = re.search(r"The value '([^']+)' does not exist for the field 'project'", str(e))
                 invalid_project = match.group(1) if match else "unknown"
                 
-                # Get available projects
-                try:
-                    available_projects = self.get_projects()
-                    if available_projects:
-                        project_list = ", ".join([f"{p['key']} ({p['name']})" for p in available_projects[:10]])
-                        suggestion = f"Project '{invalid_project}' not found. Available projects: {project_list}"
-                    else:
-                        suggestion = f"Project '{invalid_project}' not found. No projects returned from API - check permissions."
-                except Exception as proj_error:
-                    logger.error(f"Error getting projects list: {proj_error}")
-                    suggestion = f"Project '{invalid_project}' not found. Unable to retrieve available projects: {str(proj_error)}"
-                
+                suggestion = f"Project '{invalid_project}' not found. Please check the project key or contact your Jira administrator."
                 raise Exception(suggestion)
             
             raise e
@@ -129,52 +118,6 @@ class JiraClient:
             final_jql = jql_query or "ORDER BY created DESC"
         
         return final_jql
-    
-    def get_projects(self) -> List[Dict]:
-        """Get list of available projects"""
-        if not self.is_connected:
-            raise Exception("Jira client not configured. Please set JIRA_SERVER_URL, JIRA_USERNAME, and JIRA_API_TOKEN in .env file")
-        
-        try:
-            # Try the standard projects() method first
-            projects = self.jira.projects()
-            if projects:
-                return [{"key": p["key"], "name": p["name"]} for p in projects]
-            
-            # If no projects returned, try an alternative approach using search
-            logger.warning("No projects returned from projects() API, trying alternative method...")
-            
-            # Try to get projects by searching for recent issues and extracting project info
-            try:
-                result = self.jira.jql(
-                    jql="ORDER BY created DESC",
-                    limit=100,
-                    fields="project"
-                )
-                
-                # Extract unique projects from issues
-                projects_dict = {}
-                for issue in result.get("issues", []):
-                    project_info = issue.get("fields", {}).get("project")
-                    if project_info:
-                        key = project_info.get("key")
-                        name = project_info.get("name", key)
-                        if key:
-                            projects_dict[key] = {"key": key, "name": name}
-                
-                projects_list = list(projects_dict.values())
-                if projects_list:
-                    logger.info(f"Found {len(projects_list)} projects via issue search")
-                    return projects_list
-                    
-            except Exception as search_error:
-                logger.error(f"Alternative project search also failed: {search_error}")
-            
-            return []
-            
-        except Exception as e:
-            logger.error(f"Error getting projects: {str(e)}")
-            raise e
     
     def _process_issue(self, issue: dict) -> dict:
         """Process raw Jira issue into simplified format"""
