@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional, Type
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
-from .jira_tool import JiraGetIssuesTool
+from .jira_tool import JiraGetIssuesTool, JiraListProjectsTool
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,8 @@ def get_available_tools():
     tools = [
         HelloTool(),
         CalculatorTool(),
-        JiraGetIssuesTool()
+        JiraGetIssuesTool(),
+        JiraListProjectsTool()
     ]
     logger.info(f"Available tools: {[tool.name for tool in tools]}")
     return tools
