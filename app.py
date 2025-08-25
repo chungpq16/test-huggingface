@@ -67,7 +67,7 @@ def main():
         # Debug options
         if st.button("🔍 Show Logs"):
             try:
-                with open("app.log", "r") as f:
+                with open("logs/app.log", "r") as f:
                     logs = f.read()
                 st.text_area("Application Logs", logs, height=300)
             except FileNotFoundError:

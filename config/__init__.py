@@ -20,6 +20,7 @@ class Config:
     # Debug Configuration
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    ENABLE_FILE_LOGGING: bool = os.getenv("ENABLE_FILE_LOGGING", "true").lower() == "true"
     
     # LLM Parameters
     MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", "2048"))
@@ -34,22 +35,38 @@ class Config:
         # Configure logging format
         log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         
+        # Setup handlers
+        handlers = [logging.StreamHandler()]
+        
+        # Add file handler only if enabled
+        if cls.ENABLE_FILE_LOGGING:
+            # Create logs directory if it doesn't exist
+            import os
+            os.makedirs("logs", exist_ok=True)
+            handlers.append(logging.FileHandler("logs/app.log"))
+        
         logging.basicConfig(
             level=log_level,
             format=log_format,
-            handlers=[
-                logging.StreamHandler(),
-                logging.FileHandler("app.log")
-            ]
+            handlers=handlers
         )
         
-        # Set specific loggers
+        # Set specific loggers to avoid noise
         if cls.DEBUG:
             logging.getLogger("httpx").setLevel(logging.DEBUG)
             logging.getLogger("requests").setLevel(logging.DEBUG)
         else:
             logging.getLogger("httpx").setLevel(logging.WARNING)
             logging.getLogger("requests").setLevel(logging.WARNING)
+        
+        # Suppress watchdog logs to prevent feedback loop
+        logging.getLogger("watchdog").setLevel(logging.WARNING)
+        logging.getLogger("watchdog.observers").setLevel(logging.WARNING)
+        logging.getLogger("watchdog.observers.inotify_buffer").setLevel(logging.WARNING)
+        
+        # Suppress other noisy loggers
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("asyncio").setLevel(logging.WARNING)
     
     @classmethod
     def validate_config(cls) -> bool:
