@@ -23,6 +23,7 @@ class LlamaSharedLLM(BaseChatModel):
     max_tokens: int = Field(default=2048)
     temperature: float = Field(default=0.7)
     ssl_verify: bool = Field(default=True)
+    bound_tools: Optional[List] = Field(default=None)
     
     def __init__(self, api_url: str = None, api_key: str = None, **kwargs):
         # Get values from parameters or environment
@@ -41,6 +42,7 @@ class LlamaSharedLLM(BaseChatModel):
         max_tokens = kwargs.pop("max_tokens", 2048)
         temperature = kwargs.pop("temperature", 0.7)
         ssl_verify = kwargs.pop("ssl_verify", str(os.getenv("SSL_VERIFY", "true")).lower() == "true")
+        bound_tools = kwargs.pop("bound_tools", None)
         
         # Call parent constructor with all required fields
         super().__init__(
@@ -50,6 +52,7 @@ class LlamaSharedLLM(BaseChatModel):
             max_tokens=max_tokens,
             temperature=temperature,
             ssl_verify=ssl_verify,
+            bound_tools=bound_tools,
             **kwargs
         )
         
@@ -85,7 +88,7 @@ class LlamaSharedLLM(BaseChatModel):
         }
         
         # Add tools if bound
-        if hasattr(self, 'bound_tools') and self.bound_tools:
+        if self.bound_tools and len(self.bound_tools) > 0:
             try:
                 # Convert tools to OpenAI format
                 tools_list = []
@@ -175,5 +178,13 @@ class LlamaSharedLLM(BaseChatModel):
     
     def bind_tools(self, tools):
         """Bind tools to the LLM"""
-        self.bound_tools = tools
-        return self
+        # Create a new instance with bound tools to maintain immutability
+        return self.__class__(
+            api_url=self.api_url,
+            api_key=self.api_key,
+            model_name=self.model_name,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+            ssl_verify=self.ssl_verify,
+            bound_tools=tools
+        )
