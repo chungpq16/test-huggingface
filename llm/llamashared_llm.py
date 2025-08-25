@@ -92,27 +92,50 @@ class LlamaSharedLLM(BaseChatModel):
                 # Convert tools to OpenAI format
                 tools_list = []
                 for tool in self.bound_tools:
-                    if hasattr(tool, 'to_openai_format'):
-                        tools_list.append(tool.to_openai_format())
-                    elif hasattr(tool, 'to_openai_tool'):
+                    # Use the standard LangChain method for OpenAI tool conversion
+                    if hasattr(tool, 'to_openai_tool'):
                         tools_list.append(tool.to_openai_tool())
+                    elif hasattr(tool, 'to_openai_format'):
+                        tools_list.append(tool.to_openai_format())
                     else:
-                        # Fallback: create tool format manually
-                        tools_list.append({
+                        # Manual conversion for LangChain @tool decorated functions
+                        tool_schema = {
                             "type": "function",
                             "function": {
                                 "name": tool.name,
                                 "description": tool.description,
-                                "parameters": tool.args_schema.schema() if hasattr(tool, 'args_schema') else {}
                             }
-                        })
+                        }
+                        
+                        # Add parameters if available
+                        if hasattr(tool, 'args_schema') and tool.args_schema:
+                            try:
+                                schema = tool.args_schema.schema()
+                                # Convert pydantic schema to OpenAI function parameters format
+                                if 'properties' in schema:
+                                    tool_schema["function"]["parameters"] = {
+                                        "type": "object",
+                                        "properties": schema['properties'],
+                                        "required": schema.get('required', [])
+                                    }
+                            except Exception as schema_error:
+                                logger.warning(f"Failed to extract schema for tool {tool.name}: {schema_error}")
+                                tool_schema["function"]["parameters"] = {"type": "object", "properties": {}}
+                        else:
+                            tool_schema["function"]["parameters"] = {"type": "object", "properties": {}}
+                        
+                        tools_list.append(tool_schema)
                 
                 if tools_list:
                     payload["tools"] = tools_list
-                    payload["tool_choice"] = "auto"  # Only add tool_choice if tools are present
+                    payload["tool_choice"] = "auto"  # Enable automatic tool selection
                     logger.debug(f"Added {len(tools_list)} tools to payload")
+                    logger.debug(f"Tools: {json.dumps(tools_list, indent=2)}")
+                else:
+                    logger.warning("No tools were successfully converted")
+                    
             except Exception as e:
-                logger.warning(f"Failed to add tools: {e}")
+                logger.error(f"Failed to add tools: {e}")
                 # Continue without tools if there's an issue
         
         # Clean up payload - remove any None values or empty lists
