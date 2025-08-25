@@ -34,6 +34,18 @@ class JiraClient:
             self.jira = None
             logger.error("Jira client not properly configured - please set JIRA_SERVER_URL, JIRA_USERNAME, and JIRA_API_TOKEN in .env file")
     
+    def get_projects(self) -> List[Dict]:
+        """Get list of available projects"""
+        if not self.is_configured:
+            raise Exception("Jira client not configured. Please set JIRA_SERVER_URL, JIRA_USERNAME, and JIRA_API_TOKEN in .env file")
+        
+        try:
+            projects = self.jira.projects()
+            return [{"key": p["key"], "name": p["name"]} for p in projects]
+        except Exception as e:
+            logger.error(f"Error getting projects: {str(e)}")
+            return []
+    
     def search_issues(self, jql: str = "", project_key: Optional[str] = None, max_results: int = 50) -> List[Dict]:
         """Search for Jira issues using atlassian library"""
         
@@ -86,6 +98,28 @@ class JiraClient:
             
         except Exception as e:
             logger.error(f"Error searching Jira issues: {str(e)}")
+            
+            # Check if it's a project-not-found error and provide helpful suggestions
+            error_str = str(e).lower()
+            if "does not exist for the field 'project'" in error_str:
+                # Extract the invalid project key from error message
+                import re
+                match = re.search(r"The value '([^']+)' does not exist", str(e))
+                invalid_project = match.group(1) if match else "unknown"
+                
+                # Get available projects
+                try:
+                    available_projects = self.get_projects()
+                    if available_projects:
+                        project_list = ", ".join([f"{p['key']} ({p['name']})" for p in available_projects[:10]])
+                        suggestion = f"Project '{invalid_project}' not found. Available projects: {project_list}"
+                    else:
+                        suggestion = f"Project '{invalid_project}' not found. Could not retrieve available projects list."
+                except:
+                    suggestion = f"Project '{invalid_project}' not found. Please check the project key."
+                
+                raise Exception(suggestion)
+            
             raise e
     
     def _format_issue(self, issue_data: Dict) -> Dict:
@@ -217,5 +251,49 @@ class JiraGetIssuesTool(BaseTool):
             
         except Exception as e:
             error_msg = f"Error retrieving Jira issues: {str(e)}"
+            logger.error(error_msg)
+            return error_msg
+
+class JiraListProjectsInput(BaseModel):
+    """Input for Jira list projects tool"""
+    pass
+
+class JiraListProjectsTool(BaseTool):
+    """A tool to list all available Jira projects"""
+    
+    name: str = "jira_list_projects"
+    description: str = "List all available Jira projects that you have access to. Use this when you need to know what project keys are available."
+    args_schema: Type[BaseModel] = JiraListProjectsInput
+    
+    def _run(self) -> str:
+        """Execute the Jira list projects tool"""
+        logger.info("Jira list projects tool called")
+        
+        # Create Jira client instance
+        jira_client = JiraClient()
+        
+        try:
+            # Get projects from Jira
+            projects = jira_client.get_projects()
+            
+            if not projects:
+                return "No projects found or unable to retrieve projects list."
+            
+            # Format response
+            result_lines = [f"Found {len(projects)} accessible Jira projects:", ""]
+            
+            for project in projects:
+                result_lines.append(f"• {project['key']}: {project['name']}")
+            
+            # Add configuration note
+            result_lines.append("")
+            result_lines.append(f"✅ Connected to Jira: {jira_client.base_url}")
+            
+            result = "\n".join(result_lines)
+            logger.info(f"Successfully retrieved {len(projects)} projects")
+            return result
+            
+        except Exception as e:
+            error_msg = f"Error retrieving Jira projects: {str(e)}"
             logger.error(error_msg)
             return error_msg
