@@ -117,8 +117,14 @@ class JiraClient:
         # Debug logging
         logger.debug(f"Building JQL - Input query: '{jql_query}', project_key: '{project_key}', default_project: '{self.default_project}'")
         
-        # Determine which project to use
-        effective_project = project_key or self.default_project
+        # Determine which project to use - be explicit about None checking
+        effective_project = None
+        if project_key is not None and project_key.strip():
+            effective_project = project_key.strip()
+        elif self.default_project and self.default_project.strip():
+            effective_project = self.default_project.strip()
+        
+        logger.debug(f"Effective project determined: '{effective_project}'")
         
         # Build project filter
         project_filter = ""
@@ -204,6 +210,8 @@ class JiraGetIssuesTool(BaseTool):
         # Validate and sanitize project_key input
         # Handle cases where LLM passes descriptive text instead of actual project key
         if project_key and (
+            project_key.lower() == 'none' or  # Handle when LLM passes 'None' as string
+            project_key.lower() == 'null' or  # Handle when LLM passes 'null' as string
             len(project_key) > 20 or  # Project keys are typically short
             '(' in project_key or 
             ')' in project_key or
