@@ -18,6 +18,13 @@ class JiraClient:
         self.default_project = config.JIRA_PROJECT
         self.verify_ssl = config.VERIFY_SSL
         
+        # Debug logging to see what values are loaded
+        logger.debug(f"Jira config loaded - URL: {self.server_url}")
+        logger.debug(f"Jira config loaded - Username: {self.username}")
+        logger.debug(f"Jira config loaded - API Token: {'***' if self.api_token else 'NOT SET'}")
+        logger.debug(f"Jira config loaded - Default Project: {self.default_project}")
+        logger.debug(f"Jira config loaded - Verify SSL: {self.verify_ssl}")
+        
         self.jira = None
         self.is_connected = False
         
@@ -33,6 +40,8 @@ class JiraClient:
                 logger.info(f"Connected to Jira: {self.server_url}")
                 if self.default_project:
                     logger.info(f"Default project: {self.default_project}")
+                else:
+                    logger.warning("No default project set in JIRA_PROJECT environment variable")
             except Exception as e:
                 logger.error(f"Failed to connect to Jira: {e}")
                 self.is_connected = False
