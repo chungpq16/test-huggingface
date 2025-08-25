@@ -92,7 +92,7 @@ def main():
         
         if api_url == "Not set" or api_key == "Not set":
             st.warning("""
-            Please create a `.env` file in the current directory with:
+            Please create a `.env` file in the frontend directory with:
             ```
             LLAMASHARED_API_URL=your_api_url
             LLAMASHARED_API_KEY=your_token

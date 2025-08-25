@@ -7,7 +7,6 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, System
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.outputs import ChatResult, ChatGeneration
 from langchain_core.utils import get_from_dict_or_env
-from pydantic import Field
 import json
 
 # Configure logging
@@ -17,41 +16,22 @@ logger = logging.getLogger(__name__)
 class LlamaSharedLLM(BaseChatModel):
     """Custom LangChain LLM for LlamaShared API"""
     
-    api_url: str = Field(...)
-    api_key: str = Field(...)
-    model_name: str = Field(default="meta-llama/Meta-Llama-3-70B-Instruct")
-    max_tokens: int = Field(default=2048)
-    temperature: float = Field(default=0.7)
-    ssl_verify: bool = Field(default=True)
+    api_url: str
+    api_key: str
+    model_name: str = "meta-llama/Meta-Llama-3-70B-Instruct"
+    max_tokens: int = 2048
+    temperature: float = 0.7
+    ssl_verify: bool = True
     
     def __init__(self, api_url: str = None, api_key: str = None, **kwargs):
         # Get values from parameters or environment
-        if api_url is None:
-            api_url = os.getenv("LLAMASHARED_API_URL")
-        if api_key is None:
-            api_key = os.getenv("LLAMASHARED_API_KEY")
+        self.api_url = api_url or get_from_dict_or_env(kwargs, "api_url", "LLAMASHARED_API_URL")
+        self.api_key = api_key or get_from_dict_or_env(kwargs, "api_key", "LLAMASHARED_API_KEY")
+        self.model_name = kwargs.get("model_name", self.model_name)
+        self.ssl_verify = kwargs.get("ssl_verify", str(os.getenv("SSL_VERIFY", "true")).lower() == "true")
         
-        if not api_url:
-            raise ValueError("api_url is required. Set LLAMASHARED_API_URL environment variable or pass api_url parameter.")
-        if not api_key:
-            raise ValueError("api_key is required. Set LLAMASHARED_API_KEY environment variable or pass api_key parameter.")
-        
-        # Set defaults for other fields
-        model_name = kwargs.get("model_name", "meta-llama/Meta-Llama-3-70B-Instruct")
-        max_tokens = kwargs.get("max_tokens", 2048)
-        temperature = kwargs.get("temperature", 0.7)
-        ssl_verify = kwargs.get("ssl_verify", str(os.getenv("SSL_VERIFY", "true")).lower() == "true")
-        
-        # Call parent constructor with all required fields
-        super().__init__(
-            api_url=api_url,
-            api_key=api_key,
-            model_name=model_name,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            ssl_verify=ssl_verify,
-            **kwargs
-        )
+        # Call parent constructor
+        super().__init__(**kwargs)
         
         logger.debug(f"Initialized LlamaSharedLLM with URL: {self.api_url}")
         logger.debug(f"SSL Verify: {self.ssl_verify}")
