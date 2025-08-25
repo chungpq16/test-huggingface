@@ -36,11 +36,11 @@ class LlamaSharedLLM(BaseChatModel):
         if not api_key:
             raise ValueError("api_key is required. Set LLAMASHARED_API_KEY environment variable or pass api_key parameter.")
         
-        # Set defaults for other fields
-        model_name = kwargs.get("model_name", "meta-llama/Meta-Llama-3-70B-Instruct")
-        max_tokens = kwargs.get("max_tokens", 2048)
-        temperature = kwargs.get("temperature", 0.7)
-        ssl_verify = kwargs.get("ssl_verify", str(os.getenv("SSL_VERIFY", "true")).lower() == "true")
+        # Extract specific parameters and remove them from kwargs to avoid conflicts
+        model_name = kwargs.pop("model_name", "meta-llama/Meta-Llama-3-70B-Instruct")
+        max_tokens = kwargs.pop("max_tokens", 2048)
+        temperature = kwargs.pop("temperature", 0.7)
+        ssl_verify = kwargs.pop("ssl_verify", str(os.getenv("SSL_VERIFY", "true")).lower() == "true")
         
         # Call parent constructor with all required fields
         super().__init__(

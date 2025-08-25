@@ -11,6 +11,19 @@ A minimal chatbot application using LlamaShared API with LangChain, LangGraph, a
 - 📝 Debug logging support
 - 🏗️ Modular folder structure
 
+## Quick Start
+
+```bash
+# 1. Setup (one time only)
+./setup.sh
+
+# 2. Configure your API credentials
+# Edit .env file with your LLAMASHARED_API_URL and LLAMASHARED_API_KEY
+
+# 3. Run the application
+./run.sh
+```
+
 ## Setup
 
 1. **Install dependencies:**
@@ -45,8 +58,9 @@ test-huggingface/
 │   └── llamashared_llm.py  # Custom LangChain LLM
 ├── tools/                  # Tool definitions
 │   └── tools.py           # Hello & Calculator tools
-├── frontend/              # Legacy frontend (deprecated)
 ├── app.py                 # Main Streamlit application
+├── run.sh                 # Quick run script
+├── setup.sh               # Setup script
 ├── requirements.txt       # Dependencies
 ├── .env.example          # Environment template
 └── README.md            # This file
