@@ -68,6 +68,8 @@ class JiraClient:
             # Build JQL with project filtering
             final_jql = self._build_jql_with_project(jql_query, project_key)
             
+            logger.info(f"Executing JQL query: '{final_jql}'")
+            
             # Fetch issues with required fields
             fields = [
                 'key', 'summary', 'status', 'assignee', 'reporter', 
@@ -93,12 +95,17 @@ class JiraClient:
             logger.error(f"Error fetching issues: {e}")
             
             # Check if it's a project-not-found error
-            error_str = str(e).lower()
+            error_str = str(e)
             if "does not exist for the field 'project'" in error_str:
-                # Extract the invalid project key from error message
+                # Extract the invalid project key from error message - improved regex
                 import re
-                match = re.search(r"The value '([^']+)' does not exist for the field 'project'", str(e))
+                # Look for the pattern: The value 'PROJECT_KEY' does not exist for the field 'project'
+                match = re.search(r"The value '([^']+)' does not exist for the field 'project'", error_str)
                 invalid_project = match.group(1) if match else "unknown"
+                
+                # Additional debug logging
+                logger.debug(f"Project not found error detected. Full error: {error_str}")
+                logger.debug(f"Extracted invalid project: '{invalid_project}'")
                 
                 suggestion = f"Project '{invalid_project}' not found. Please check the project key or contact your Jira administrator."
                 raise Exception(suggestion)
@@ -107,6 +114,9 @@ class JiraClient:
     
     def _build_jql_with_project(self, jql_query: str, project_key: Optional[str] = None) -> str:
         """Build JQL query with project filtering"""
+        # Debug logging
+        logger.debug(f"Building JQL - Input query: '{jql_query}', project_key: '{project_key}', default_project: '{self.default_project}'")
+        
         # Determine which project to use
         effective_project = project_key or self.default_project
         
@@ -116,16 +126,21 @@ class JiraClient:
             project_filter = f'project = "{effective_project}"'
         
         # Combine with existing JQL
-        if project_filter and jql_query and not jql_query.lower().startswith('order by'):
-            final_jql = f"{project_filter} AND ({jql_query})"
-        elif project_filter:
-            if jql_query.lower().startswith('order by'):
-                final_jql = f"{project_filter} {jql_query}"
+        if project_filter:
+            if jql_query and not jql_query.lower().strip().startswith('order by'):
+                # If we have both project filter and custom JQL (not just ORDER BY)
+                final_jql = f"{project_filter} AND ({jql_query})"
             else:
-                final_jql = f"{project_filter} ORDER BY created DESC"
+                # Just project filter with optional ordering
+                if jql_query and jql_query.lower().strip().startswith('order by'):
+                    final_jql = f"{project_filter} {jql_query}"
+                else:
+                    final_jql = f"{project_filter} ORDER BY created DESC"
         else:
+            # No project filtering
             final_jql = jql_query or "ORDER BY created DESC"
         
+        logger.debug(f"Built JQL: '{final_jql}'")
         return final_jql
     
     def _process_issue(self, issue: dict) -> dict:
