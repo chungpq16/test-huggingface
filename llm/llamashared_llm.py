@@ -78,13 +78,12 @@ class LlamaSharedLLM(BaseChatModel):
             elif isinstance(msg, SystemMessage):
                 api_messages.append({"role": "system", "content": msg.content})
         
-        # Prepare payload
+        # Prepare payload with only essential fields first
         payload = {
             "messages": api_messages,
             "model": self.model_name,
             "max_tokens": self.max_tokens,
             "temperature": self.temperature,
-            "tool_choice": "auto",  # Enable tool calling
         }
         
         # Add tools if bound
@@ -108,14 +107,21 @@ class LlamaSharedLLM(BaseChatModel):
                             }
                         })
                 
-                payload["tools"] = tools_list
-                logger.debug(f"Added {len(tools_list)} tools to payload")
+                if tools_list:
+                    payload["tools"] = tools_list
+                    payload["tool_choice"] = "auto"  # Only add tool_choice if tools are present
+                    logger.debug(f"Added {len(tools_list)} tools to payload")
             except Exception as e:
                 logger.warning(f"Failed to add tools: {e}")
                 # Continue without tools if there's an issue
         
-        # Add any additional kwargs
-        payload.update(kwargs)
+        # Clean up payload - remove any None values or empty lists
+        payload = {k: v for k, v in payload.items() if v is not None and v != []}
+        
+        # Add any additional kwargs (but filter out problematic ones)
+        filtered_kwargs = {k: v for k, v in kwargs.items() 
+                          if k not in ['stop'] and v is not None}  # Remove 'stop' and None values
+        payload.update(filtered_kwargs)
         
         headers = {
             "accept": "application/json",
@@ -141,6 +147,27 @@ class LlamaSharedLLM(BaseChatModel):
             )
             
             logger.debug(f"Response status: {response.status_code}")
+            
+            # Enhanced error handling for debugging
+            if response.status_code != 200:
+                logger.error(f"HTTP {response.status_code} Error")
+                logger.error(f"Response headers: {dict(response.headers)}")
+                try:
+                    error_response = response.json()
+                    logger.error(f"Error response body: {json.dumps(error_response, indent=2)}")
+                except:
+                    logger.error(f"Error response text: {response.text}")
+                
+                # Provide specific error message
+                if response.status_code == 400:
+                    raise ValueError(f"Bad Request (400): The API request payload is invalid. Check the logs above for details.")
+                elif response.status_code == 401:
+                    raise ValueError(f"Unauthorized (401): Invalid API key or authentication failed.")
+                elif response.status_code == 403:
+                    raise ValueError(f"Forbidden (403): Access denied to the API endpoint.")
+                else:
+                    raise ValueError(f"HTTP {response.status_code}: {response.text}")
+            
             response.raise_for_status()
             
             response_json = response.json()
