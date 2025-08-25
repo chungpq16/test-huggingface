@@ -1,248 +1,176 @@
-"""
-LlamaShared Chatbot - Main Application
-A simple chatbot using LlamaShared API with LangChain & LangGraph
-"""
-
 import streamlit as st
-import os
 import logging
-from dotenv import load_dotenv
-from llm.llamashared_llm import LlamaSharedLLM
-from tools.tools import AVAILABLE_TOOLS
-from langgraph.prebuilt import create_react_agent
+import json
+from datetime import datetime
+from config import config
+from agent import LLMAgent
 
-# Load environment variables
-load_dotenv()
-
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG if os.getenv("DEBUG", "false").lower() == "true" else logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# Configure Streamlit page
+st.set_page_config(
+    page_title="LLM Agent Chat",
+    page_icon="🤖",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Initialize logging
 logger = logging.getLogger(__name__)
 
+@st.cache_resource
+def initialize_agent():
+    """Initialize the LLM Agent (cached for performance)"""
+    try:
+        return LLMAgent()
+    except Exception as e:
+        st.error(f"Failed to initialize agent: {e}")
+        logger.error(f"Agent initialization failed: {e}")
+        return None
 
-class ChatbotApp:
-    """Main Chatbot Application Class"""
+def main():
+    """Main Streamlit application"""
     
-    def __init__(self):
-        self.agent = None
-        self.setup_page_config()
+    st.title("🤖 LLM Agent Chat")
+    st.markdown("Chat with an AI agent that can use tools to help answer your questions!")
     
-    def setup_page_config(self):
-        """Configure Streamlit page"""
-        st.set_page_config(
-            page_title="LlamaShared Chatbot",
-            page_icon="🦙",
-            layout="wide",
-            initial_sidebar_state="expanded"
-        )
-    
-    def get_environment_config(self):
-        """Get configuration from environment variables"""
-        return {
-            'api_url': os.getenv("LLAMASHARED_API_URL"),
-            'api_key': os.getenv("LLAMASHARED_API_KEY"),
-            'model_name': os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3-70B-Instruct"),
-            'ssl_verify': os.getenv("SSL_VERIFY", "true").lower() == "true",
-            'debug': os.getenv("DEBUG", "false").lower() == "true"
-        }
-    
-    def validate_config(self, config):
-        """Validate required configuration"""
-        missing_configs = []
+    # Sidebar configuration
+    with st.sidebar:
+        st.header("⚙️ Configuration")
         
-        if not config['api_url']:
-            missing_configs.append("LLAMASHARED_API_URL")
-        if not config['api_key']:
-            missing_configs.append("LLAMASHARED_API_KEY")
+        # Display current configuration
+        st.subheader("Current Settings")
+        st.text(f"Model: {config.LLM_MODEL}")
+        st.text(f"Max Tokens: {config.MAX_TOKENS}")
+        st.text(f"Temperature: {config.TEMPERATURE}")
+        st.text(f"SSL Verify: {config.VERIFY_SSL}")
+        st.text(f"Debug Mode: {config.DEBUG}")
         
-        return missing_configs
-    
-    def initialize_agent(self):
-        """Initialize the LangGraph agent with LLM and tools"""
-        try:
-            config = self.get_environment_config()
-            missing_configs = self.validate_config(config)
-            
-            if missing_configs:
-                raise ValueError(f"Missing required environment variables: {', '.join(missing_configs)}")
-            
-            # Initialize LLM
-            llm = LlamaSharedLLM(
-                api_url=config['api_url'],
-                api_key=config['api_key'],
-                model_name=config['model_name'],
-                ssl_verify=config['ssl_verify']
-            )
-            
-            # Create ReAct agent with tools
-            agent = create_react_agent(llm, AVAILABLE_TOOLS)
-            
-            logger.info("Agent initialized successfully")
-            return agent
+        # Configuration validation
+        if config.validate_config():
+            st.success("✅ Configuration is valid")
+        else:
+            st.error("❌ Configuration is invalid. Please check your .env file.")
+            st.stop()
         
-        except Exception as e:
-            logger.error(f"Error initializing agent: {e}")
-            st.error(f"Failed to initialize agent: {e}")
-            return None
-    
-    def render_sidebar(self):
-        """Render the configuration sidebar"""
-        with st.sidebar:
-            st.header("🔧 Configuration")
-            
-            config = self.get_environment_config()
-            
-            # Mask API key for display
-            api_key_display = (
-                f"{config['api_key'][:8]}..." 
-                if config['api_key'] and len(config['api_key']) > 8 
-                else "Not set"
-            )
-            
-            # Display current settings
-            st.info(f"""
-            **API URL:** {config['api_url'] or 'Not set'}
-            **API Key:** {api_key_display}
-            **Model:** {config['model_name']}
-            **SSL Verify:** {config['ssl_verify']}
-            **Debug:** {config['debug']}
-            """)
-            
-            # Show warnings for missing configuration
-            missing_configs = self.validate_config(config)
-            if missing_configs:
-                for missing in missing_configs:
-                    st.error(f"⚠️ {missing} not configured")
-                
-                st.warning("""
-                **Setup Instructions:**
-                1. Create a `.env` file in the project root
-                2. Add your configuration:
-                ```
-                LLAMASHARED_API_URL=your_api_url
-                LLAMASHARED_API_KEY=your_token
-                SSL_VERIFY=false
-                DEBUG=true
-                ```
-                3. Restart the application
-                """)
-            
-            st.divider()
-            
-            # Available tools section
-            st.header("🛠️ Available Tools")
-            st.markdown("""
-            • **Hello Tool** - Simple greeting function
-            • **Calculate Tool** - Basic math operations
-              - Add, subtract, multiply, divide
-              - Example: "Calculate 15 + 27"
-            """)
-            
-            st.divider()
-            
-            # Control buttons
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("🔄 Reinitialize", use_container_width=True):
-                    if 'agent' in st.session_state:
-                        del st.session_state.agent
-                    st.rerun()
-            
-            with col2:
-                if st.button("🗑️ Clear Chat", use_container_width=True):
-                    st.session_state.messages = []
-                    st.rerun()
-    
-    def render_main_content(self):
-        """Render the main chat interface"""
-        st.title("🦙 LlamaShared Chatbot")
-        st.caption("A simple chatbot using LlamaShared API with LangChain & LangGraph")
+        st.divider()
         
-        # Initialize agent if not already done
-        if 'agent' not in st.session_state:
-            with st.spinner("🚀 Initializing agent..."):
-                st.session_state.agent = self.initialize_agent()
+        # Tools information
+        st.subheader("🛠️ Available Tools")
+        agent = initialize_agent()
+        if agent:
+            tools_info = agent.get_tool_info()
+            for tool in tools_info:
+                with st.expander(f"🔧 {tool['name']}"):
+                    st.write(tool['description'])
         
-        if st.session_state.agent is None:
-            st.error("❌ Agent failed to initialize. Please check your configuration in the sidebar.")
-            return
+        st.divider()
         
-        # Initialize chat history
-        if "messages" not in st.session_state:
+        # Debug options
+        if st.button("🔍 Show Logs"):
+            try:
+                with open("app.log", "r") as f:
+                    logs = f.read()
+                st.text_area("Application Logs", logs, height=300)
+            except FileNotFoundError:
+                st.info("No log file found yet")
+        
+        if st.button("🗑️ Clear Chat History"):
             st.session_state.messages = []
-        
-        # Display welcome message if no chat history
-        if not st.session_state.messages:
-            with st.chat_message("assistant"):
-                st.markdown("""
-                👋 Hello! I'm your LlamaShared chatbot assistant. I can:
-                
-                - Answer questions and have conversations
-                - Greet people using the hello tool
-                - Perform basic calculations
-                
-                Try asking me something like:
-                - "Hello there!"
-                - "Say hello to Alice"
-                - "Calculate 25 * 4"
-                - "What's 100 divided by 5?"
-                """)
-        
-        # Display chat history
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-        
-        # Chat input
-        if prompt := st.chat_input("💬 What would you like to know?"):
-            self.handle_user_input(prompt)
+            st.rerun()
     
-    def handle_user_input(self, prompt):
-        """Handle user input and generate response"""
+    # Initialize agent
+    agent = initialize_agent()
+    if not agent:
+        st.error("Failed to initialize the agent. Please check your configuration.")
+        st.stop()
+    
+    # Initialize chat history
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+        # Add welcome message
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": "Hello! I'm your AI assistant. I can help you with various tasks and answer questions. I have access to tools like a calculator and can greet people. How can I help you today?",
+            "timestamp": datetime.now().isoformat()
+        })
+    
+    # Display chat messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+            
+            # Show intermediate steps for assistant messages if available
+            if message["role"] == "assistant" and "intermediate_steps" in message:
+                if message["intermediate_steps"]:
+                    with st.expander("🔍 Agent Reasoning Steps"):
+                        for i, (action, observation) in enumerate(message["intermediate_steps"]):
+                            st.write(f"**Step {i+1}:**")
+                            st.write(f"Action: {action.tool}")
+                            st.write(f"Input: {action.tool_input}")
+                            st.write(f"Output: {observation}")
+                            st.divider()
+    
+    # Chat input
+    if prompt := st.chat_input("Type your message here..."):
         # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.session_state.messages.append({
+            "role": "user",
+            "content": prompt,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        # Display user message
         with st.chat_message("user"):
             st.markdown(prompt)
         
-        # Generate response
+        # Generate assistant response
         with st.chat_message("assistant"):
-            with st.spinner("🤔 Thinking..."):
+            with st.spinner("Thinking..."):
                 try:
-                    # Invoke the agent
-                    response = st.session_state.agent.invoke({"messages": [("user", prompt)]})
+                    # Process the message with the agent
+                    response = agent.process_message(prompt)
                     
-                    # Extract the response content
-                    if "messages" in response and response["messages"]:
-                        assistant_message = response["messages"][-1].content
+                    if response["success"]:
+                        st.markdown(response["output"])
+                        
+                        # Show intermediate steps if available
+                        if response["intermediate_steps"]:
+                            with st.expander("🔍 Agent Reasoning Steps"):
+                                for i, (action, observation) in enumerate(response["intermediate_steps"]):
+                                    st.write(f"**Step {i+1}:**")
+                                    st.write(f"Action: {action.tool}")
+                                    st.write(f"Input: {action.tool_input}")
+                                    st.write(f"Output: {observation}")
+                                    st.divider()
+                        
+                        # Add assistant message to chat history
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": response["output"],
+                            "intermediate_steps": response["intermediate_steps"],
+                            "timestamp": datetime.now().isoformat()
+                        })
                     else:
-                        assistant_message = "I'm sorry, I couldn't generate a response."
-                    
-                    st.markdown(assistant_message)
-                    
-                    # Add assistant response to chat history
-                    st.session_state.messages.append({"role": "assistant", "content": assistant_message})
-                    
+                        error_msg = f"Sorry, I encountered an error: {response.get('error', 'Unknown error')}"
+                        st.error(error_msg)
+                        
+                        # Add error message to chat history
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": error_msg,
+                            "timestamp": datetime.now().isoformat()
+                        })
+                        
                 except Exception as e:
-                    error_message = f"❌ Error: {str(e)}"
-                    st.error(error_message)
-                    logger.error(f"Error generating response: {e}")
+                    error_msg = f"An unexpected error occurred: {str(e)}"
+                    st.error(error_msg)
+                    logger.error(f"Streamlit error: {e}")
                     
-                    # Add error to chat history
-                    st.session_state.messages.append({"role": "assistant", "content": error_message})
-    
-    def run(self):
-        """Run the Streamlit application"""
-        self.render_sidebar()
-        self.render_main_content()
-
-
-def main():
-    """Main application entry point"""
-    app = ChatbotApp()
-    app.run()
-
+                    # Add error message to chat history
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": error_msg,
+                        "timestamp": datetime.now().isoformat()
+                    })
 
 if __name__ == "__main__":
     main()
