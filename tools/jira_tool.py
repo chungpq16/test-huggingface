@@ -129,7 +129,7 @@ class JiraClient:
 class JiraGetIssuesInput(BaseModel):
     """Input for Jira get issues tool"""
     project_key: Optional[str] = Field(
-        description="Optional project key to filter issues (e.g., 'PROJ', 'DEV'). If not provided, gets issues from all projects.",
+        description="Optional project key to filter issues (e.g., 'PROJ', 'DEV'). Leave empty or set to None to get issues from all projects or default project.",
         default=None
     )
     limit: int = Field(
@@ -141,12 +141,33 @@ class JiraGetIssuesTool(BaseTool):
     """A tool to get Jira issues with optional project filtering"""
     
     name: str = "jira_get_issues"
-    description: str = "Get Jira issues from all projects or filter by specific project. Use this when user asks about Jira issues, wants to see project issues, or needs to list tickets."
+    description: str = """Get Jira issues from projects. Usage:
+    - To get all issues: call with no parameters or project_key=None
+    - To get issues from specific project: set project_key to the project code (e.g., 'PROJ')
+    - To limit results: set limit parameter (default 50)
+    
+    Examples:
+    - jira_get_issues() -> gets all issues from default/all projects  
+    - jira_get_issues(project_key='PROJ') -> gets issues from PROJ project
+    - jira_get_issues(limit=10) -> gets 10 issues from default/all projects"""
     args_schema: Type[BaseModel] = JiraGetIssuesInput
     
     def _run(self, project_key: Optional[str] = None, limit: int = 50) -> str:
         """Execute the Jira get issues tool"""
         logger.info(f"Jira tool called with project_key: {project_key}, limit: {limit}")
+        
+        # Validate and sanitize project_key input
+        # Handle cases where LLM passes descriptive text instead of actual project key
+        if project_key and (
+            len(project_key) > 20 or  # Project keys are typically short
+            '(' in project_key or 
+            ')' in project_key or
+            'all issues' in project_key.lower() or
+            'default' in project_key.lower() or
+            'without any input' in project_key.lower()
+        ):
+            logger.warning(f"Invalid project_key detected: '{project_key}' - treating as None")
+            project_key = None
         
         # Create Jira client instance
         jira_client = JiraClient()
