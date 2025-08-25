@@ -40,17 +40,30 @@ class JiraClient:
         if not self.is_configured:
             raise Exception("Jira client not configured. Please set JIRA_SERVER_URL, JIRA_USERNAME, and JIRA_API_TOKEN in .env file")
         
-        # Use default project if none specified
-        effective_project = project_key or self.default_project
+        # Build JQL query based on parameters
+        final_jql = ""
         
-        # Build JQL query
-        if effective_project and jql:
-            final_jql = f"project = {effective_project} AND ({jql})"
-        elif effective_project:
-            final_jql = f"project = {effective_project} ORDER BY created DESC"
-        elif jql:
-            final_jql = jql
+        # Handle project filtering
+        if project_key:
+            # Specific project requested
+            final_jql = f"project = \"{project_key}\""
+        elif self.default_project:
+            # Use default project
+            final_jql = f"project = \"{self.default_project}\""
+        # If no project specified, search all projects (no project filter)
+        
+        # Add custom JQL if provided
+        if jql:
+            if final_jql:
+                final_jql = f"{final_jql} AND ({jql})"
+            else:
+                final_jql = jql
+        
+        # Add ordering
+        if final_jql:
+            final_jql = f"{final_jql} ORDER BY created DESC"
         else:
+            # No filters at all, just order by created date
             final_jql = "ORDER BY created DESC"
         
         logger.debug(f"Searching Jira with JQL: {final_jql}")
@@ -139,31 +152,30 @@ class JiraGetIssuesTool(BaseTool):
         jira_client = JiraClient()
         
         try:
-            # Use default project if none specified
-            effective_project = project_key or jira_client.default_project
-            
             # Get issues from Jira
             issues = jira_client.search_issues(
-                project_key=effective_project,
+                project_key=project_key,  # Pass project_key directly
                 max_results=limit
             )
             
             if not issues:
-                if effective_project:
-                    return f"No issues found in project '{effective_project}'"
+                if project_key:
+                    return f"No issues found in project '{project_key}'"
+                elif jira_client.default_project:
+                    return f"No issues found in default project '{jira_client.default_project}'"
                 else:
                     return "No issues found"
             
             # Format response
             result_lines = []
             
-            if effective_project:
-                if project_key:
-                    result_lines.append(f"Found {len(issues)} issues in project '{effective_project}':")
-                else:
-                    result_lines.append(f"Found {len(issues)} issues in default project '{effective_project}':")
+            # Determine which project context we're showing
+            if project_key:
+                result_lines.append(f"Found {len(issues)} issues in project '{project_key}':")
+            elif jira_client.default_project:
+                result_lines.append(f"Found {len(issues)} issues in default project '{jira_client.default_project}':")
             else:
-                result_lines.append(f"Found {len(issues)} issues from all projects:")
+                result_lines.append(f"Found {len(issues)} issues from all accessible projects:")
             
             result_lines.append("")
             
